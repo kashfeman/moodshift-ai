@@ -1,29 +1,34 @@
 # MoodShift AI
 
 A university Digital Image Processing project for exploring mood-based image
-styling. **Milestone 3 implements real reference-guided neural style transfer.**
+styling. **Milestone 4 implements photographic presets and a hybrid mood service.**
 
 Implemented:
 
 - Installable, typed Python package using a `src` layout.
 - Immutable configuration with validated limits and default settings.
-- Immutable metadata for Cinematic, Sunset, Cold Blue, Vintage, and Dreamy.
+- Immutable metadata and typed grading recipes for Cinematic, Sunset, Cold Blue,
+  Vintage, and Dreamy.
 - Bounded PNG/JPEG/WebP loading, EXIF orientation, and RGB normalization.
 - Aspect-preserving resize, RGB/LAB conversion, and image statistics.
 - PNG/JPEG export without overwriting existing files.
 - Optimization-based neural transfer with frozen pretrained SqueezeNet features,
   content loss, normalized Gram style loss, total variation, and Adam.
 - CPU/CUDA selection, bounded quality controls, and a local command-line demo.
+- Real CIELAB photographic grading, deterministic synthetic style references,
+  and a service with grade-only, neural-only, and hybrid modes.
 - Generated-image tests, Ruff checks, and GitHub Actions for Python 3.12.
 
 NOT YET IMPLEMENTED:
 
-- Mood preset processing and automatic mood/reference selection.
-- Application services coordinating processing and a Gradio user interface.
+- Automatic mood recognition/reference selection.
+- Gradio frontend and web server.
 
-There is no UI or preset-specific transformation. Presets remain metadata.
-Neural output is actually optimized against the supplied reference. No paid API
-is used. Only the official SqueezeNet checkpoint downloads on first nonzero use.
+Named presets now perform actual photographic grading. Grade mode uses only
+NumPy/OpenCV/Pillow and never imports PyTorch. Neural modes optimize real pretrained
+features against a user reference or a clearly labeled synthetic preset reference.
+No paid API is used. Only neural modes may download the official checkpoint when
+needed and allowed; grade mode and zero intensity never load the neural model.
 
 ## Development
 
@@ -62,7 +67,7 @@ format is `PNG` (`JPEG` is also accepted). Configuration validates setting value
 it does not inspect uploads. Custom preset IDs are accepted by configuration;
 services will resolve them against the catalog using `get_preset`.
 
-`moodshift.presets.PRESETS` contains the five immutable metadata entries.
+`moodshift.presets.PRESETS` contains the five immutable metadata/recipe entries.
 `get_preset(id)` raises `KeyError` for unknown IDs.
 
 See [the architecture plan](docs/ARCHITECTURE.md) for module boundaries. Store
@@ -113,7 +118,124 @@ did not reproduce during inspection. Safe fallback commands are
 `python -m pytest -q -o cache_dir=.pytest_cache_local` (ignored by Git), or
 `python -m pytest -q -p no:cacheprovider` if caching is unnecessary.
 
-## Neural transfer and CLI
+## Mood presets and service CLI
+
+```powershell
+python -m moodshift.services.demo --content "content.png" --preset cinematic --mode grade --intensity 75 --output "cinematic.png"
+python -m moodshift.services.demo --content "content.png" --preset dreamy --mode hybrid --quality preview --intensity 60 --offline --output "dreamy-hybrid.png"
+python -m moodshift.services.demo --content "content.png" --reference "reference.jpg" --mode neural --quality balanced --intensity 65 --output "reference-transfer.png"
+```
+
+| Mode | Processing | Selection |
+| --- | --- | --- |
+| `grade` | CIELAB color/tonal grading, bloom/grain where configured; no neural model | Preset required; references rejected |
+| `neural` | Genuine SqueezeNet feature optimization; no post-grading | User reference **or** preset synthetic reference |
+| `hybrid` | Genuine neural optimization followed by named preset grading | Preset required; optional user reference overrides the synthetic reference |
+
+Combining a preset and user reference in `neural` mode is rejected to avoid
+silently ignoring the preset; select `hybrid` for that combination. Existing files
+are never overwritten. CLI output reports actual backend, device, reference
+source, executed neural steps, and output dimensions. Errors do not produce a
+substitute image or falsely report completed inference.
+
+| Preset | Photographic recipe |
+| --- | --- |
+| Cinematic | Teal a/b offsets in shadows, warm highlights, deeper continuous contrast, modest saturation |
+| Sunset | Golden highlights, orange/pink midtones, lifted gamma, restrained vibrance |
+| Cold Blue | Blue/cyan shadows and midtones, reduced warmth/saturation, controlled depth |
+| Vintage | Warm faded chroma, lifted blacks, compressed whites, reduced saturation, delicate seeded monochrome grain |
+| Dreamy | Pastel chroma, gentler contrast, brighter gamma, highlight-only soft bloom |
+
+Masks form a smooth shadow/midtone/highlight partition of CIELAB L. Chroma-only
+operations leave L unchanged before tone adjustment and RGB gamut clipping.
+Offsets taper near black and white. Vibrance favors muted colors and reduces its
+boost on warm hues; this is a hue heuristic, not face or skin detection. Tone
+curves are monotonic and preserve smooth ramps. Bloom softly screens blurred
+highlights without blurring the whole scene. Grain uses a local seeded generator
+and a shared RGB-channel noise field. Use `--no-grain` to disable Vintage's final
+grain pass; neural texture/artifacts are not removed by that option.
+
+Intensity is a **single final interpolation in encoded RGB**, from normalized
+original pixels to the full processed appearance. Zero returns exact full-size
+normalized pixels without model loading, grading, or synthetic-reference creation.
+All supplied input files and request combinations are still validated. Export as
+PNG for exact pixels; JPEG encoding remains lossy. Nonzero neural modes optimize
+at style strength 1 and use intensity for the final blend, rather than applying
+intensity twice. Content preservation weights the engine's content loss.
+
+### Service quality and dimensions
+
+| Quality | Neural Adam steps | Internal maximum side |
+| --- | --- | --- |
+| `preview` | 20 | 128px |
+| `balanced` (default) | 60 | 256px |
+| `high` | 120 | 384px |
+
+These are the **service** quality defaults; the lower-level Milestone 3 engine
+defaults below remain unchanged. Override `--steps` (1..500) or `--max-size`
+(32..512). Grade-only requests execute zero neural steps regardless of quality.
+Without explicit `--max-size`, grade-only processes at the original size. Neural
+pixels are optimized at the quality resolution and LANCZOS-resampled back onto
+the original grid, preserving dimensions and scene layout without cropping.
+Restoring dimensions does not restore lost fine detail. An explicit `--max-size`
+also limits the final output without upscaling the source. Each neural input axis
+must remain at least 17px after processing resize. Zero ignores output size limits
+so that the exact-original guarantee holds.
+
+High mode costs more CPU time/memory; no fixed runtime is promised. The service
+does not change global thread counts; the demo CLI uses two CPU threads for neural
+requests. Full-size grades allocate float image buffers; explicitly limit large
+images if memory is tight. CUDA is supported by the existing engine but untested
+on this CPU-only workstation. Low-step neural previews can have conspicuous
+texture artifacts. The synthetic references are simple palette/texture studies,
+not photographs or specialized trained mood models; grade-only is often the
+more restrained photographic result. ICC/HDR limitations from Milestone 2 remain.
+
+```python
+from moodshift.services.models import MoodSettings
+from moodshift.services.mood_transfer import MoodTransferService
+
+service = MoodTransferService(allow_download=False)
+result = service.transfer(
+    "content.png", preset_id="sunset", settings=MoodSettings(mode="grade", intensity=80)
+)
+image, metadata = result.image, result.metadata
+```
+
+Result metadata is frozen and reports preset ID, requested mode, actual backend,
+device, whether neural/grading stages ran, applied reference source, original,
+neural and final sizes, and effective settings. Zero reports engine `none` and
+reference `none`; grade reports `numpy-opencv`, CPU, zero neural steps. Injected
+unit-test backends are explicitly labeled `injected-neural-backend`, never
+pretrained SqueezeNet. Reuse a service instance for sequential neural calls.
+
+### Synthetic references and reproducible examples
+
+Built-in references are deterministic 128x128 mathematical color/texture patterns
+graded using the same preset registry. They are generated locally, temporarily
+encoded for the existing path-based engine, then cleaned up. They are **synthetic
+style inputs**, not AI outputs or third-party photographs. Reference grain uses
+fixed seed 0; `--seed` controls neural initialization and the final grain pass.
+See [asset provenance](assets/presets/README.md).
+
+Generate a new set of demo fixtures and before/after examples:
+
+```powershell
+python -m moodshift.services.examples --output-dir "outputs/my-comparison"
+$env:TORCH_HOME = Join-Path (Get-Location) '.cache\torch'
+python -m moodshift.services.examples --output-dir "outputs/my-hybrid-comparison" --hybrid
+```
+
+The directory must be new. The optional hybrid uses cached weights only. The
+synthetic landscape, five real grade outputs, contact sheet, result metadata, and
+optional hybrid output remain local and ignored by Git under `outputs/`.
+Milestone 4 examples were generated in `outputs/milestone4/`, reloaded and visually
+inspected: mean absolute changes were 5.059 (Cinematic), 9.176 (Sunset), 6.453
+(Cold Blue), 13.805 (Vintage), and 12.217 (Dreamy) on the uint8 scale. A real
+20-step Cinematic hybrid also completed on CPU. These tests demonstrate working
+operations and distinct looks, not a benchmark of photographic quality.
+
+## Lower-level neural transfer and CLI (Milestone 3)
 
 ```powershell
 python -m moodshift.engine.demo --content "content.png" --style "reference.jpg" --output "result.png" --quality preview --strength 0.6 --content-preservation 0.7 --steps 60 --max-size 192 --device auto
