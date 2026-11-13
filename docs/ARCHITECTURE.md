@@ -1,45 +1,72 @@
-# Application architecture
+﻿# Application architecture
 
-## Implemented in Milestone 1
+## Implemented through Milestone 2
 
-The installable `moodshift` package lives under `src/`. Tests import the installed
-package rather than relying on repository-root imports. `config.py` owns immutable,
-validated settings. `presets.py` owns immutable descriptive metadata and explicit
-ID lookup. Both use only the Python standard library.
+The installable package uses src-layout and Python >=3.12,<3.13, matching the
+Windows 3.12.10 environment and Python 3.12 CI. Preserve the existing environment;
+do not reinstall Python or switch global interpreters.
 
-The `imaging`, `engine`, `services`, and `ui` packages currently contain only
-module documentation. They establish boundaries without introducing stub
-processors, fake inference, or speculative interfaces.
+`config.py` owns immutable validated limits/defaults. `presets.py` owns frozen
+metadata and explicit ID lookup. Neither imports imaging or machine learning.
 
-## Planned responsibilities
+| Imaging module | Responsibility |
+| --- | --- |
+| `exceptions` | Typed invalid, unsupported, limit, and export errors |
+| `validation` | Inclusive dimensions/pixel limits and RGB array contracts |
+| `io` | Bounded local decode, EXIF orientation, exclusive PNG/JPEG export |
+| `transforms` | RGB normalization over white and LANCZOS downsampling |
+| `color` | Independent PIL/NumPy copies and OpenCV float CIE LAB conversion |
+| `statistics` | Frozen brightness, contrast, RGB/LAB means and deviations |
 
-| Module | Responsibility | Planned dependencies |
+Loading checks file presence and encoded size, reads at most the byte limit plus
+one, validates raw header dimensions before decoding, rejects multiple frames,
+verifies structure, then decodes the same bounded bytes. Oriented dimensions are
+checked before rotation; PNG EXIF access can trigger decoding after raw checks. EXIF
+orientation is applied once and returned RGB pixels are detached from the file.
+Pillow bomb protections remain enabled; warnings/errors become domain errors.
+PNG, JPEG, and WebP are detected from content, not filename extension.
+
+Transparency composites over white; grayscale becomes RGB. High-bit-depth/float
+modes are rejected, ICC profiles are not interpreted, and metadata is removed.
+Basic Pillow CMYK conversion is supported. This is deterministic 8-bit processing,
+not archival color management. Resizing never upscales and allows pixel rounding.
+Operations do not mutate caller images or arrays.
+
+Arrays are H x W x 3 uint8 RGB. LAB is float32 CIE units (L 0..100, signed a/b,
+D65), not packed uint8 LAB. Reverse conversion rounds and clips out-of-gamut RGB.
+Brightness/contrast are mean/population deviation of gamma-encoded BT.709 luma
+in 0..1, not physical exposure estimates. Channel statistics use population std.
+
+Export encodes before exclusive creation, preserving existing files and symlink
+targets. PNG is lossless; JPEG defaults to quality 95 without chroma subsampling
+and is lossy. Parents must exist. Failed writes may leave a partial new file.
+Callers select local paths; no server path containment or process isolation is
+provided. Encoded size and pixel limits reduce allocation risk, not all decoder
+security risks.
+
+## NOT YET IMPLEMENTED
+
+`engine`, `services`, and `ui` contain documentation only.
+
+| Package | Planned responsibility | Future dependencies |
 | --- | --- | --- |
-| `config` | Limits and application defaults | Standard library |
-| `presets` | Preset identity and descriptive metadata | Standard library |
-| `imaging` | Decode, validate, normalize, classical DIP, encode | Pillow, NumPy, OpenCV |
-| `engine` | Neural network definitions, weight loading, inference | PyTorch, TorchVision |
-| `services` | Coordinate application use cases and resolve presets | Config, presets, imaging, engine |
-| `ui` | Input collection, event handling, results and error presentation | Gradio, services |
+| `engine` | Reference-guided neural transfer, weight loading, inference | PyTorch, TorchVision |
+| `services` | Resolve presets and coordinate imaging/inference use cases | Config, presets, imaging, engine |
+| `ui` | Collect inputs, call services, present results and errors | Gradio, services |
 
-Planned request flow: UI → service → input validation and decoding → processing
-or inference → output encoding → UI. The UI calls services; it does not contain
-processing or neural network logic. Imaging and engine code must not import the
-UI or application services. Config and preset metadata remain independent of
-heavy libraries. Add interfaces only when concrete integration needs justify them.
+Future flow: UI -> services -> validated imaging -> neural engine -> image export.
+UI must not contain processing or neural logic. Imaging and engine must not
+import UI/services. Add interfaces only for concrete integration needs. Preset
+metadata does not implement mood transformations. No fake inference, pretrained
+weights, paid APIs, UI, or web server is included.
 
-Future image validation must check encoded bytes before decoding, then decoded
-dimensions and pixel count before expensive processing. Upload formats, color
-handling, model preprocessing, and error contracts will be decided alongside
-their implementations, not simulated in this foundation.
+## Assets and verification
 
-## Assets and validation
+Tracked preset assets belong in `assets/presets/`; generated images go in ignored
+`outputs/`; future weights go in ignored `weights/`.
 
-`assets/presets/` is reserved for tracked preset resources. Generated images belong
-in ignored `outputs/`; weights belong in ignored `weights/`. No weights are bundled
-or downloaded. No paid API is part of the design.
-
-Unit tests cover setting constraints, immutable defaults, catalog integrity,
-metadata validation, and lookup failures. CI installs the package on Python 3.11,
-runs Ruff lint and formatting checks, then runs Pytest. Future milestones should
-add processing and inference tests when those implementations exist.
+Generated-image tests cover formats, corrupt/unsupported input, limits, bomb
+protection, EXIF, alpha, array ownership/channel order, aspect ratio, LAB tolerance,
+known statistics, export/reload, and original-file preservation. CI installs the
+package on Python 3.12, runs Ruff lint/format checks and Pytest. README documents
+development commands and safe cache diagnostics without administrator access.
