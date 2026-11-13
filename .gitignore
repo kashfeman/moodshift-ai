@@ -1,0 +1,45 @@
+# Python environments, builds, and tooling caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Secrets and local settings
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+.aws/
+
+# Model weights and generated images
+models/
+weights/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+outputs/
+generated/
+generated_images/
+uploads/
+
+# Editor and operating system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
