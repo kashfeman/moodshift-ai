@@ -81,10 +81,16 @@ class MoodTransferService:
         if user_reference is not None:
             load_image(user_reference, self.config).close()
         original_size = content.size
-        active = settings.intensity > 0
+        active = settings.intensity > 0 and (
+            settings.mode != "neural" or settings.neural_style_strength > 0
+        )
         if active and settings.max_size is not None:
             content = resize_to_fit(content, (settings.max_size, settings.max_size))
-        neural = active and settings.mode in ("neural", "hybrid")
+        neural = (
+            active
+            and settings.mode in ("neural", "hybrid")
+            and settings.neural_style_strength > 0
+        )
         grading = active and settings.mode in ("grade", "hybrid")
         neural_size = None
         stylized = content.copy()
@@ -158,12 +164,15 @@ class MoodTransferService:
                 content_preservation=settings.content_preservation if neural else None,
                 neural_steps=effective_neural.steps if neural else 0,
                 neural_max_size=effective_neural.max_size if neural else None,
-                output_max_size=settings.max_size if settings.intensity > 0 else None,
+                output_max_size=settings.max_size if neural or grading else None,
                 seed=settings.seed,
                 grain_enabled=grading
                 and preset is not None
                 and settings.grain_enabled
                 and preset.grading.grain > 0,
+                neural_style_strength=settings.neural_style_strength
+                if settings.mode != "grade" and settings.intensity > 0
+                else None,
             ),
         )
 

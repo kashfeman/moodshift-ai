@@ -24,6 +24,7 @@ class MoodSettings:
     steps: int | None = None
     seed: int = 0
     grain_enabled: bool = True
+    neural_style_strength: float = 1.0
 
     def __post_init__(self) -> None:
         """Reject invalid modes, nonfinite intensity, and unsafe neural controls."""
@@ -50,7 +51,7 @@ class MoodSettings:
             "high": (120, 384),
         }[self.quality]
         return TransferSettings(
-            style_strength=1.0,
+            style_strength=self.neural_style_strength,
             content_preservation=self.content_preservation,
             steps=steps if self.steps is None else self.steps,
             max_size=max_size if self.max_size is None else self.max_size,
@@ -70,6 +71,7 @@ class EffectiveSettings:
     output_max_size: int | None
     seed: int
     grain_enabled: bool
+    neural_style_strength: float | None = None
 
 
 @dataclass(frozen=True, slots=True)

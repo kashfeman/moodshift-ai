@@ -1,1 +1,4 @@
-"""Reserved for Gradio presentation and user interaction."""
+"""Gradio presentation and testable adapters to the existing mood-transfer service.
+
+Launch with python -m moodshift.ui.app. Imports alone never start a server.
+"""

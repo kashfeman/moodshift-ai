@@ -1,7 +1,7 @@
 # MoodShift AI
 
 A university Digital Image Processing project for exploring mood-based image
-styling. **Milestone 4 implements photographic presets and a hybrid mood service.**
+styling. **Milestone 5 implements the Gradio frontend for the existing backend.**
 
 Implemented:
 
@@ -18,17 +18,86 @@ Implemented:
 - Real CIELAB photographic grading, deterministic synthetic style references,
   and a service with grade-only, neural-only, and hybrid modes.
 - Generated-image tests, Ruff checks, and GitHub Actions for Python 3.12.
+- Responsive Gradio Blocks UI with mode-aware controls, validated uploads,
+  before/after slider, PNG download, and actual processing metadata.
 
 NOT YET IMPLEMENTED:
 
 - Automatic mood recognition/reference selection.
-- Gradio frontend and web server.
+- Final submission polish and broader integration review (later milestone).
 
 Named presets now perform actual photographic grading. Grade mode uses only
 NumPy/OpenCV/Pillow and never imports PyTorch. Neural modes optimize real pretrained
 features against a user reference or a clearly labeled synthetic preset reference.
 No paid API is used. Only neural modes may download the official checkpoint when
 needed and allowed; grade mode and zero intensity never load the neural model.
+
+## Launch the Gradio app
+
+From the repository root, using the existing Python 3.12 environment:
+
+```powershell
+.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+python -m moodshift.ui.app
+```
+
+Open **http://127.0.0.1:7860**. The default is a local-only server with no public
+share link. `--host` and `--port` change the binding; `--share` explicitly enables
+Gradio's public tunnel. Stop with Ctrl+C. No separate JS/React frontend or custom
+FastAPI application is built; Gradio supplies its own web-server dependencies.
+
+The UI uses Gradio >=6.32,<7 (verified with 6.32.0); theme/CSS are supplied at
+launch as required by [Gradio 6](https://gradio.app/guides/gradio-6-migration-guide).
+There are no external font downloads or paid APIs.
+
+**Workflow:** upload content, choose Grade/Neural/Hybrid, select a preset, optionally
+upload a neural reference, adjust controls, Generate, compare, and download PNG.
+Uploads stay as encoded files until the existing loader validates PNG/JPEG/WebP,
+10 MiB size, dimensions/pixels, and EXIF/RGB normalization. Neural controls hide
+in Grade mode; no reference is applied there. External references disable the
+preset in Neural mode, and override only the built-in reference in Hybrid mode.
+Without an external reference, neural modes clearly identify the selected
+preset's deterministic **synthetic** built-in reference.
+
+UI controls include independent **Preset/result intensity** (0..100) and **Neural
+style strength** (0..1), content preservation, Preview/Balanced/High quality,
+optional custom optimization steps, optional output size limit, device, offline
+mode, seed, and Vintage grain. Defaults favor quick Grade mode and Preview neural
+quality. Selecting quality resets displayed step/resolution defaults; custom steps
+are used only when enabled. An unchecked output limit preserves original dimensions.
+
+- Result intensity zero returns exact normalized source pixels with no effects.
+- Neural strength zero skips neural inference/reference application: Neural mode
+  returns unchanged content; Hybrid still applies its photographic grade.
+- Offline is on by default. Turn it off only to allow the existing loader's
+  official first-run checkpoint download; no download occurs just by opening the UI.
+
+For weights cached by the previous milestones in this repository, set the normal
+PyTorch cache environment variable **before** starting the app:
+
+```powershell
+$env:TORCH_HOME = Join-Path (Get-Location) '.cache\torch'
+python -m moodshift.ui.app --port 7860
+```
+
+Generation is serialized with a bounded queue. The button disables while running,
+duplicate session submissions are guarded, and progress describes real stages;
+there is no invented per-step percentage or fixed runtime. Errors clear stale
+outputs, explain the issue, and restore the button. Actual backend/device and
+effective controls come from returned service metadata, not from UI selections.
+
+The before/after slider uses matched dimensions and lossless PNG previews. The
+download is exported via the existing non-overwriting RGB exporter to a unique
+owned temporary path; source images are never overwritten. Gradio cache files
+expire after an hour (checked every ten minutes). Source export files are expired
+on the next generation or removed on app shutdown. Downloads should be saved
+promptly; these are temporary demo artifacts, not persistent image storage.
+
+Suggested-setting examples require your own image and do not reference absent
+sample files. How to Use, Project Info, Limitations, and Technical Details accordions
+explain the project and its CPU/quality tradeoffs. Final polish, broader photographic
+evaluation, and final submission integration review remain later work.
 
 ## Development
 
@@ -53,7 +122,7 @@ Runtime dependencies are Pillow >=11.1,<13, NumPy >=2.2,<3, and headless OpenCV
 >=4.11,<5, plus PyTorch >=2.10,<2.11 and matching TorchVision >=0.25,<0.26.
 The CPU-index install above avoids GPU libraries on CPU workstations; CI uses it
 too. These versions follow the [official compatible package pair](https://pytorch.org/get-started/previous-versions/).
-Pytest and Ruff remain developer dependencies. Gradio is deferred. CUDA use
+Pytest and Ruff remain developer dependencies; Gradio supplies the frontend. CUDA use
 requires a compatible CUDA PyTorch installation and actual supported hardware;
 the engine never installs or switches package builds itself.
 
@@ -159,9 +228,11 @@ Intensity is a **single final interpolation in encoded RGB**, from normalized
 original pixels to the full processed appearance. Zero returns exact full-size
 normalized pixels without model loading, grading, or synthetic-reference creation.
 All supplied input files and request combinations are still validated. Export as
-PNG for exact pixels; JPEG encoding remains lossy. Nonzero neural modes optimize
-at style strength 1 and use intensity for the final blend, rather than applying
-intensity twice. Content preservation weights the engine's content loss.
+PNG for exact pixels; JPEG encoding remains lossy. Neural modes default to style
+strength 1 and use intensity for the final blend. Milestone 5 adds an optional
+`MoodSettings.neural_style_strength` pass-through for the UI (default unchanged),
+independent of intensity. Zero skips inference with truthful metadata. Content
+preservation weights the engine's content loss; existing CLI defaults are unchanged.
 
 ### Service quality and dimensions
 

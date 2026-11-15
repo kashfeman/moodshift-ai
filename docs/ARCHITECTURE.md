@@ -1,6 +1,6 @@
 ﻿# Application architecture
 
-## Implemented through Milestone 4
+## Implemented through Milestone 5
 
 The installable package uses src-layout and Python >=3.12,<3.13, matching the
 Windows 3.12.10 environment and Python 3.12 CI. Preserve the existing environment;
@@ -149,7 +149,9 @@ LAB conversion may still clip colors outside the RGB gamut. Color management/HDR
 limitations remain those of the imaging foundation.
 
 Intensity 0..100 is one final encoded-RGB blend between content and full processed
-appearance. Nonzero neural stages use engine style_strength=1. Zero bypasses all
+appearance. Neural stages default to engine style_strength=1; Milestone 5 adds an
+optional validated neural_style_strength pass-through for independent UI control.
+Zero neural strength skips inference (hybrid can still grade); zero intensity bypasses all
 effects, model construction, reference generation, and resize, returning exact
 normalized content pixels. Supplied input paths and mode combinations remain
 validated. No inference failure is replaced with a grade-only or unchanged image.
@@ -170,19 +172,73 @@ claimed to be pretrained. Neural CPU/CUDA failures propagate; no fake progress o
 fixed-time estimates exist. The CLI checks output availability early and still
 uses exclusive export against race-time overwrites.
 
+## Gradio UI
+
+The Gradio 6 Blocks frontend is implemented entirely in Python under `ui/`.
+Gradio provides its own framework/server dependencies; there is no separately
+authored FastAPI server, JS application, or React frontend.
+
+| UI module | Responsibility |
+| --- | --- |
+| `app` | Blocks composition, lightweight control events, local launch CLI |
+| `components` | Named form components, result layout, CSS, project/help accordions |
+| `state` | Immutable form snapshots, mode presentation, display-ready result values |
+| `helpers` | Mode rules, metadata formatting, safe user-facing failures |
+| `controller` | Existing loader/service/export adapter, session guards, owned temporary files |
+| `callbacks` | Streaming busy/success/error states with indeterminate stage progress |
+
+Implemented dependency flow: Gradio callbacks -> UiController -> MoodTransferService
+-> imaging/engine. No processing algorithms are duplicated in the UI. Preset names
+come from the existing registry. Neural import/loading remains lazy. The additive
+service strength field preserves all existing defaults and validation by passing
+through the engine's existing TransferSettings; no loss algorithm was changed.
+Effective metadata also records neural strength, including zero-strength skips.
+
+File uploads preserve encoded bytes for existing size/format/pixel validation;
+an output-only image component displays the validated normalized preview. Launch
+also enforces the upload byte limit. Mode events hide neural-only controls in Grade,
+clear unused references, and disable unused presets for external-reference Neural
+requests. Hidden controls cannot affect grading. Hybrid retains its preset for the
+post-grade. Intensity and neural strength are independent; zero behavior is explicit.
+
+The same streamed event disables the Generate button, clears stale outputs, calls
+the adapter, then restores success/error output state. Queue concurrency is one,
+queue capacity eight, trigger mode is once, and per-session guards reject duplicate
+work. A processing lock also protects backend reuse when the controller is called
+directly. Service instances are reused by offline/device policy. Stage-only progress
+is indeterminate: existing neural optimization has no per-step UI progress hook.
+Exceptions retain backend contracts and become concise errors without arbitrary
+filesystem paths or fabricated fallback images.
+
+Outputs include an RGB result, matched-size before/after ImageSlider, unique PNG
+download, readable facts, and full actual service metadata. Comparison resampling
+is presentation-only. Image previews use PNG to avoid introducing display loss.
+Exports use an owned temporary directory with UUID filenames and existing exclusive
+export behavior. The app permits serving that directory, not the whole repository.
+Export expiry is checked on new requests; Gradio cache expiry is checked periodically.
+Normal app shutdown cleans owned exports. No uploads or user-selected paths are
+deleted. Save downloads before temporary artifacts expire.
+
+Theme and CSS are passed to Gradio 6 launch, with system fonts and light/dark
+theme variables. The layout wraps on narrow screens. Startup does not construct
+models or process examples; examples are parameter combinations without missing
+image dependencies. Default binding is 127.0.0.1:7860, analytics disabled, sharing
+off. Host/port/share changes require explicit CLI arguments.
+
+UI tests build Blocks without a browser, validate form/mode logic, mock only the
+service boundary for callback isolation, exercise real grade/export adapters, and
+check guard/error/button recovery and truthful facts. Additional local HTTP smoke
+verification exercises real Gradio uploads, all three modes with cached pretrained
+weights, valid downloads, and matched comparison pairs. No weights download during
+ordinary tests. This is distinct from mocked tests and from manual photographic
+quality evaluation.
+
 ## NOT YET IMPLEMENTED
 
-The UI, web server, and automatic mood/reference recognition remain unimplemented.
-
-| Package | Planned responsibility | Future dependencies |
-| --- | --- | --- |
-| `ui` | Collect inputs, call services, present results and errors | Gradio, services |
-
-Future flow: UI -> services -> validated imaging -> neural engine -> image export.
-UI must not contain processing or neural logic. Imaging and engine must not
-import UI/services. Add interfaces only for concrete integration needs. Preset
-processing is implemented through the service and grading modules. No paid APIs,
-UI, or web server are included. No weights are bundled with the repository.
+Automatic mood/reference recognition, final submission polish, broader integration
+review, and production deployment remain later work. UI must not contain processing
+or neural logic, and imaging/engine must not import UI/services. No paid API or
+bundled weights are included. The frontend is a local university demonstration.
 
 ## Assets and verification
 
