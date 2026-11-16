@@ -39,6 +39,9 @@ def test_real_mood_service(image_paths: tuple[Path, Path, Path], mode: str) -> N
     assert result.metadata.device == "cpu" and result.metadata.neural_applied
     assert result.metadata.grading_applied == (mode == "hybrid")
     assert result.metadata.settings.neural_steps == 4
+    assert result.metadata.reconstruction == (
+        "content-guided-residual" if mode == "hybrid" else "direct-rgb"
+    )
     assert result.metadata.reference_source == (
         "synthetic-preset" if mode == "hybrid" else "user"
     )

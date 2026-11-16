@@ -273,10 +273,12 @@ Neural returns unchanged content and Hybrid runs only its photographic grade."""
         gr.Markdown("""Neural optimization can be slow on CPU and can introduce texture
 artifacts. Preview uses fewer steps and pixels; High costs more time and memory.
 No fixed runtime or aesthetic quality is promised. Restoring original output
-dimensions cannot restore fine detail lost at the internal neural resolution.
+dimensions alone cannot restore detail lost at the neural resolution.
+Hybrid preserves source detail through guided neural color reconstruction.
+This reduces transferred texture; vivid colors can still clip.
 Images are processed as 8-bit RGB; ICC/HDR workflows are not supported.
 Only one generation runs at a time. Downloads are temporary; save your result.
-Final submission polish and broader integration review remain a later milestone.""")
+More steps or pixels do not guarantee a better aesthetic result.""")
     with gr.Accordion("Technical Details", open=False):
         gr.Markdown("""**Model:** SqueezeNet 1.1, official ImageNet1K_V1 weights.
 Frozen intermediate features guide Adam optimization using content MSE,
@@ -284,7 +286,7 @@ normalized Gram style loss, and total variation.
 
 **Grade:** photographic DIP only, no neural inference or reference application.
 **Neural:** real reference-guided optimization without a post-grade.
-**Hybrid:** real neural optimization followed by the selected photographic grade.
+**Hybrid:** real neural optimization, guided color reconstruction, then grade.
 
 External references replace built-in references. In Neural mode the preset is
 disabled while an external reference is supplied. In Hybrid it still supplies the

@@ -1,7 +1,7 @@
 # MoodShift AI
 
 A university Digital Image Processing project for exploring mood-based image
-styling. **Milestone 5 implements the Gradio frontend for the existing backend.**
+styling. **Milestones 1–5 and final local quality/QA review are implemented.**
 
 Implemented:
 
@@ -20,11 +20,22 @@ Implemented:
 - Generated-image tests, Ruff checks, and GitHub Actions for Python 3.12.
 - Responsive Gradio Blocks UI with mode-aware controls, validated uploads,
   before/after slider, PNG download, and actual processing metadata.
+- Content-guided Hybrid reconstruction that preserves source detail while applying
+  the genuine neural color residual; direct artistic Neural output remains separate.
 
 NOT YET IMPLEMENTED:
 
 - Automatic mood recognition/reference selection.
-- Final submission polish and broader integration review (later milestone).
+- Production deployment and broad photographic/user-study evaluation.
+
+Final submission materials: [project report](docs/submission/PROJECT_REPORT.md),
+[5–7 minute demo](docs/submission/DEMO_SCRIPT.md),
+[actual QA results](docs/submission/TEST_SUMMARY.md), and
+[submission checklist](docs/submission/SUBMISSION_CHECKLIST.md).
+The report includes genuine before/after evidence and a controlled 20/60-step,
+128/256/384-pixel comparison. Hybrid visibly reduced artifacts on the investigated
+landscape; more steps did not consistently improve its appearance. Neural-only
+output can still introduce texture artifacts. No broad aesthetic guarantee is made.
 
 Named presets now perform actual photographic grading. Grade mode uses only
 NumPy/OpenCV/Pillow and never imports PyTorch. Neural modes optimize real pretrained

@@ -9,6 +9,7 @@ from moodshift.config import DEFAULT_CONFIG, AppConfig
 from moodshift.engine.settings import TransferSettings
 from moodshift.imaging.grading import apply_grade, blend_images
 from moodshift.imaging.io import load_image
+from moodshift.imaging.reconstruction import reconstruct_hybrid
 from moodshift.imaging.transforms import resize_to_fit
 from moodshift.presets import MoodPreset
 from moodshift.services.models import (
@@ -71,7 +72,8 @@ class MoodTransferService:
         """Grade, generate neural output, or combine both, then blend intensity once.
 
         Default output has original dimensions. Explicit max_size limits output;
-        otherwise low-resolution neural pixels are restored to the original grid.
+        otherwise neural output is restored to the original grid. Hybrid transfers
+        guided neural color residuals onto source detail; Neural enlarges RGB pixels.
         No crop or geometric warp is applied. Zero intensity bypasses all effects.
         """
         settings = MoodSettings() if settings is None else settings
@@ -101,7 +103,9 @@ class MoodTransferService:
                     content_path, style_path, settings.neural_settings()
                 )
             neural_size = stylized.size
-            if stylized.size != content.size:
+            if settings.mode == "hybrid":
+                stylized = reconstruct_hybrid(content, stylized)
+            elif stylized.size != content.size:
                 stylized = stylized.resize(content.size, Image.Resampling.LANCZOS)
         if grading:
             assert preset is not None
@@ -158,6 +162,11 @@ class MoodTransferService:
             original_size=original_size,
             output_size=output_size,
             neural_size=neural_size,
+            reconstruction="content-guided-residual"
+            if neural and settings.mode == "hybrid"
+            else "direct-rgb"
+            if neural
+            else "none",
             settings=EffectiveSettings(
                 intensity=settings.intensity,
                 quality=settings.quality,

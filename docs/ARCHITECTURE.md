@@ -235,12 +235,35 @@ quality evaluation.
 
 ## NOT YET IMPLEMENTED
 
-Automatic mood/reference recognition, final submission polish, broader integration
-review, and production deployment remain later work. UI must not contain processing
+Automatic mood/reference recognition, broad photographic evaluation,
+and production deployment remain later work. UI must not contain processing
 or neural logic, and imaging/engine must not import UI/services. No paid API or
 bundled weights are included. The frontend is a local university demonstration.
 
 ## Assets and verification
+
+Final quality review adds `imaging/reconstruction.py`: Hybrid computes a low-grid
+neural-minus-content RGB residual, fits local grayscale-guided linear coefficients
+with 9×9 box means and epsilon 0.01, upsamples coefficients and applies them to
+full-resolution source pixels. This preserves source high frequencies instead of
+enlarging generated texture. Grading and the single final intensity blend follow.
+Pure Neural still uses direct RGB reconstruction. No sharpening, invented detail,
+learned super-resolution or extra model is introduced. Metadata reports the actual
+reconstruction method, including `none` on bypass/grade requests. The engine,
+feature normalization, losses, initialization and preset recipes are unchanged.
+
+Regression tests cover exact residual identity, input ownership, preservation of
+checkerboard detail with a transferred color shift, attenuation of uncorrelated
+neural texture and explicit RGB validation. Cached integration checks verify
+reconstruction metadata. Final HTTP verification covers all five presets in all
+three modes with real cached CPU inference. See
+[submission QA](submission/TEST_SUMMARY.md) for observed results and limits.
+
+Selected report screenshots are permanent documentation assets under
+`docs/submission/evidence/`; full-resolution generated outputs, temporary QA scripts,
+Gradio uploads and model caches remain excluded from Git. A tracked, offline-only
+`scripts/quality_comparison.py` reproduces controlled reconstruction comparisons
+using a supplied local image and a new caller-selected output directory.
 
 Tracked preset assets belong in `assets/presets/`; generated images go in ignored
 `outputs/`; future weights go in ignored `weights/`.

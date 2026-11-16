@@ -35,7 +35,7 @@ def mode_presentation(
         )
         explanation = (
             f"**Hybrid transfer** · Real SqueezeNet optimization using {source}, "
-            "followed by the selected photographic grade."
+            "with content-guided reconstruction, then the selected photographic grade."
         )
     else:
         raise ValueError("Choose grade, neural, or hybrid mode.")
@@ -83,7 +83,8 @@ def format_metadata(metadata: MoodMetadata) -> tuple[str, dict[str, Any]]:
         f"**Output:** {metadata.output_size[0]} × {metadata.output_size[1]} RGB · "
         f"**Intensity:** {settings.intensity:g}/100 · "
         f"**Neural steps:** {settings.neural_steps} · "
-        f"**Neural strength:** {strength}"
+        f"**Neural strength:** {strength}  \n"
+        f"**Reconstruction:** {metadata.reconstruction}"
     )
     return summary, asdict(metadata)
 
