@@ -70,7 +70,7 @@ of tree detail visibly improved; source high-frequency distortion fell at every
 tested combination. Guided 20 steps was not inferior to 60 by the chosen detail
 diagnostic. No universal quality improvement from resolution/steps is claimed.
 
-![Four actual final mode outputs](evidence/final-modes.png)
+[Mode comparison screenshot withheld from the distribution pending rights review.]
 
 The panel shows real Cinematic Grade, Sunset Grade, Dreamy Hybrid Preview and
 Neural Transfer outputs. Grading remains structurally clean; Sunset is visibly
@@ -86,7 +86,7 @@ wraps into a single column. The existing dark theme, spacing and label hierarchy
 were retained. No visual redesign was justified by this inspection. Copy now
 explains guided reconstruction and removes obsolete later-milestone wording.
 
-![Actual application at laptop width](evidence/ui-laptop.png)
+[Application screenshot withheld from the distribution pending rights review.]
 
 This main-app screenshot is the initial state. Interaction/download assertions
 were performed through real HTTP, not automated browser clicks. The separate
@@ -96,7 +96,8 @@ a generation. Touch-device behavior and every browser/viewport remain unverified
 
 ## Evidence and limits
 
-Selected screenshots are included under `docs/submission/evidence/`. Full-size
+Screenshots remain in the local workspace and are excluded from the revised
+distributable package until rights are confirmed. Full-size
 outputs, raw neural grids, scripts used for local HTTP/browser smoke checks and
 JSON experiment results are under ignored `outputs/final_qa/`. The maintained
 `scripts/quality_comparison.py` reproduces quality experiments offline with a
@@ -108,3 +109,24 @@ Remaining limits: CUDA untested, no broad photographic dataset/user study,
 Neural-only artifacts, possible clipping, 8-bit RGB, and source-photo redistribution
 rights to confirm before publishing the evidence. Local correctness and CPU
 integration passed; these results do not establish production readiness.
+
+## Milestone 7E verification — 24 November 2026
+
+On the existing Windows Python 3.12 CPU environment, the full suite produced **255
+passed, 3 skipped, 0 failed**. The three skipped opt-in cached pretrained tests
+were also run separately: **3 passed, 60 deselected**. Ruff lint and formatting,
+`pip check`, and `git diff --check` passed. The real local Gradio HTTP client
+exercised Grade, Neural, Hybrid and experimental guided inference; each returned
+an image, before/after pair and PNG download. Neural and Hybrid used one CPU
+optimization step for this wiring check, not a quality benchmark. Served image and
+gallery configurations excluded the Spaces-only Share action while retaining
+configured download/fullscreen controls; this was a configuration check, not a
+visual browser inspection.
+
+The verified original guided checkpoint identifies architecture `guided-v1`, records
+five epochs and seed 0, has 250,691 decoder parameters and eight Adam parameter
+states at step 55. The official cached SqueezeNet encoder loaded frozen. Its final
+recorded training/validation losses were 0.967978/0.881958. The 96×96 held-out
+comparisons preserve structure but the guided output's style change is subtle;
+two pairs cannot establish generalization. Archived example photographs and
+screenshots require permission review before distribution.

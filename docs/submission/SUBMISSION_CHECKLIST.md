@@ -31,7 +31,7 @@
 - [ ] Apply the university's formatting, citation and disclosure requirements.
 - [ ] Review `git diff` and manually decide whether to commit.
 
-Suggested conventional commit:
+Earlier milestone suggested commit:
 `fix: preserve hybrid scene detail and prepare final QA submission`
 
 Launch from the repository root:
@@ -42,4 +42,37 @@ $env:TORCH_HOME = Join-Path (Get-Location) '.cache\torch'
 ```
 
 Open http://127.0.0.1:7860. Keep Offline enabled for the existing cached model.
-Future research and deployment work are outside this final QA task.
+Further research and deployment remain outside this submission.
+
+## Milestone 7E handoff checks
+
+- [x] Full suite: 255 passed, 3 optional skips; all three opt-in tests passed separately.
+- [x] Verify the pinned trained guided checkpoint and 55 optimizer steps.
+- [x] Check the actual five-epoch records, training curve and held-out outputs.
+- [x] Exercise local Studio modes and separate guided generation/download by HTTP.
+- [x] Confirm local image/gallery configuration excludes the Spaces Share action.
+- [ ] Before distribution, confirm rights for every supplied photograph, comparison
+      image, and screenshot; otherwise replace or omit the affected evidence.
+- [ ] Fill the institution-specific cover, student identity and course requirements.
+- [ ] On the presentation laptop, install Python 3.12/dependencies, restore the
+      separate trusted decoder package, and obtain the official cached encoder.
+- [ ] Independently review the documentation, provenance and academic disclosures.
+
+The experimental decoder's 96×96 result retains structure but transfers style only
+subtly. It is not evidence of strong mood transfer or broad generalization.
+
+## Milestone 7F.1 package
+
+The revised source package excludes the local photographic comparisons and
+screenshots because permissions are not verified. The original local files are
+preserved. It retains recorded numerical losses and the project-generated loss
+curve, not the raw training dataset. The trained decoder ZIP is separate and its
+training-data and weight redistribution rights remain unconfirmed. Review
+`THIRD_PARTY_NOTICES.md` and `SUBMISSION_READINESS_AUDIT.md`; add an appropriate
+project license only after the project owner selects one.
+
+- [ ] Complete every field on the academic cover.
+- [ ] Confirm rights for training data and any trained-weight distribution.
+- [ ] Confirm project and dependency/model terms before distributing.
+- [ ] Test a clean installation on the destination machine and obtain the official
+      pretrained encoder independently if it is not cached.

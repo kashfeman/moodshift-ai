@@ -259,8 +259,9 @@ reconstruction metadata. Final HTTP verification covers all five presets in all
 three modes with real cached CPU inference. See
 [submission QA](submission/TEST_SUMMARY.md) for observed results and limits.
 
-Selected report screenshots are permanent documentation assets under
-`docs/submission/evidence/`; full-resolution generated outputs, temporary QA scripts,
+Selected screenshots remain local under `docs/submission/evidence/` but are excluded
+from the revised distributable package pending rights review; full-resolution
+generated outputs, temporary QA scripts,
 Gradio uploads and model caches remain excluded from Git. A tracked, offline-only
 `scripts/quality_comparison.py` reproduces controlled reconstruction comparisons
 using a supplied local image and a new caller-selected output directory.
@@ -287,3 +288,25 @@ separate from the original engine smoke test. The examples command produces real
 local grade outputs and an optional cached-model hybrid; it never fabricates a
 successful neural result. Synthetic fixtures are not a substitute for future
 evaluation on diverse real photographs.
+
+## Milestone 7E: trained decoder and submission handoff
+
+The existing Studio pipeline remains the production demonstration. The additional
+`guided_decoder` predicts a learned bounded color shift conditioned on SqueezeNet
+layer 9 and a full-resolution RGB content skip. Its 250,691 decoder parameters were
+trained; the official ImageNet SqueezeNet 1.1 encoder stayed frozen. The guided
+training CLI uses CPU Adam, 96×96 crops, batch size one, learning rate 0.0001 and
+gradient clipping. It uses distinct train and validation folder paths, checks for
+byte-identical and decoded-pixel-identical cross-split images, and does not establish
+that visually similar or lossy re-encoded duplicates are absent. Training and
+validation dataset counts are session records, not checkpoint metadata.
+
+`ui/experiments` verifies the exact locally trusted guided checkpoint using a pinned
+SHA-256 digest, loads it with PyTorch's `weights_only` mode, validates its recorded
+architecture/history and loads the official cached encoder without downloading or
+falling back. `ui/experiments_tab` shows available evidence and invokes this separate
+96×96 CPU inference path. Existing Studio modes continue to use their original
+service and neural optimization. Experimental image outputs preserve content but
+style changes are subtle; neither visual generalization nor high-quality mood
+transfer is established. Checkpoint and image evidence files are local, ignored by
+Git, and must be transferred separately as explained in the submission README.

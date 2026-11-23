@@ -1,7 +1,7 @@
 # MoodShift AI
 
 A university Digital Image Processing project for exploring mood-based image
-styling. **Milestones 1–5 and final local quality/QA review are implemented.**
+styling. **Studio and the experimental trained-decoder dashboard are implemented.**
 
 Implemented:
 
@@ -32,16 +32,19 @@ Final submission materials: [project report](docs/submission/PROJECT_REPORT.md),
 [5–7 minute demo](docs/submission/DEMO_SCRIPT.md),
 [actual QA results](docs/submission/TEST_SUMMARY.md), and
 [submission checklist](docs/submission/SUBMISSION_CHECKLIST.md).
-The report includes genuine before/after evidence and a controlled 20/60-step,
-128/256/384-pixel comparison. Hybrid visibly reduced artifacts on the investigated
+The report records a genuine before/after investigation and a controlled 20/60-step,
+128/256/384-pixel comparison. The revised distributable ZIP excludes photographic
+evidence pending permission review. Hybrid visibly reduced artifacts on the investigated
 landscape; more steps did not consistently improve its appearance. Neural-only
 output can still introduce texture artifacts. No broad aesthetic guarantee is made.
 
-Named presets now perform actual photographic grading. Grade mode uses only
-NumPy/OpenCV/Pillow and never imports PyTorch. Neural modes optimize real pretrained
+Named presets now perform actual photographic grading. Grade processing uses only
+NumPy/OpenCV/Pillow and does not run the neural engine. The dashboard may load
+the cached encoder at application startup to check experimental availability. Neural modes optimize real pretrained
 features against a user reference or a clearly labeled synthetic preset reference.
 No paid API is used. Only neural modes may download the official checkpoint when
-needed and allowed; grade mode and zero intensity never load the neural model.
+needed and allowed; grade and zero-intensity processing do not invoke the neural model. The dashboard
+may check cached model availability when the app starts.
 
 ## Launch the Gradio app
 

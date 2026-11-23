@@ -15,7 +15,7 @@ already exists in that cache. Installation may require Internet; cached inferenc
 does not. Verify the checkpoint before class, rather than attempting downloads
 during the demonstration. Use a photograph you have permission to present and
 have a second contrasting reference ready. Save outputs before temporary downloads
-expire. Keep the included evidence screenshots open as backup if class hardware
+expire. Keep any separately cleared evidence screenshots open as backup if class hardware
 runs slowly; clearly label saved evidence rather than pretending it is live.
 
 ## 0:00–0:40 — Purpose and architecture
@@ -50,15 +50,15 @@ strength 0.5, Preview 20 steps, content preservation 0.7 and no output limit.
 Generate. Show `synthetic-preset` and `content-guided-residual` in metadata.
 Explain: “The real neural result supplies a color residual. A guided filter uses
 the original scene to preserve detail, then Dreamy grading and final blending run.”
-Open the included genuine 20/60-step browser comparison. Point to cloud artifacts
+If rights have been cleared, open the local genuine 20/60-step browser comparison. Point to cloud artifacts
 in the previous enlargement and preserved trees in the new images. The saved
 experiment used the same 978×1365 source and CPU settings listed in the report.
 
 ## 4:10–5:10 — Quality controls and honest limitations
 
 Enable custom steps and choose 60 while keeping Preview resolution for a fair
-step-only comparison. Generate if runtime permits; otherwise show the saved real
-60-step output and state that it was generated during QA. Explain that Balanced
+step-only comparison. Generate if runtime permits; otherwise refer to the recorded real
+60-step metrics and state that they were measured during QA. Explain that Balanced
 also increases processing resolution to 256; High is 120/384. The controlled
 experiment found no universal benefit from more steps. Hybrid deliberately
 reduces new style texture to preserve source structure. Zero intensity bypasses
@@ -75,3 +75,18 @@ recognition, and limited photographic evaluation. Stop the server with Ctrl+C.
 If asked whether quality is proved generally: “We observed improvement on the
 reported landscape, supported by real crops and detail diagnostics. We have not
 conducted a broad user study or established an aesthetic benchmark.”
+
+## Added training demonstration (Milestone 7E)
+
+In **Training & Experiments**, show the checkpoint-backed five-epoch loss table,
+loss curve and, if locally available and cleared, held-out comparisons. Explain the 250,691-parameter
+content-guided decoder was trained with Adam on local photographs, while the
+official ImageNet encoder stayed frozen. The checkpoint history does not itself
+record the historical dataset counts; they come from the experiment session.
+Select the trusted guided checkpoint, upload a permitted content photograph and
+style reference, and generate the separate experimental CPU output. Compare its
+96×96 crop and download the PNG. State that its style influence is subtle and that
+its output is not equivalent to the Studio's per-image optimization. If required
+weights or evidence are missing, point to the displayed explanation instead of
+claiming a live result. The trained checkpoint package and official cached encoder
+must be installed before class, following the README.

@@ -1,4 +1,20 @@
-# MoodShift AI: project report
+# MoodShift AI: Digital Image Processing Project
+
+## Academic submission cover
+
+| Field | Information to be completed by the student |
+| --- | --- |
+| Project title | MoodShift AI: Digital Image Processing Project |
+| Student name(s) | **[TO BE COMPLETED]** |
+| Roll number(s) | **[TO BE COMPLETED]** |
+| Course | **[TO BE COMPLETED]** |
+| Instructor | **[TO BE COMPLETED]** |
+| University | **[TO BE COMPLETED]** |
+| Submission date | **[TO BE COMPLETED]** |
+
+---
+
+# Project report
 
 ## 1. Introduction and problem statement
 
@@ -151,18 +167,17 @@ The controlled table tests 20/60 at each grid, not the default High 120-step pre
 
 ### Genuine local screenshots and outputs
 
-Selected documentation screenshots are included in `evidence/`. Full-resolution
-experimental outputs and raw CNN grids stay in ignored `outputs/final_qa/`.
-Confirm source-image permissions before distributing the report or evidence.
-A checkout contains the selected screenshots but not the full generated outputs.
+The original screenshots and full-resolution experimental outputs remain local.
+The revised distributable package omits screenshots and photographs because source
+permissions have not been established. The measurements above remain actual records.
 
-![Actual Chrome comparison: original, previous 20-step, guided 20-step and guided 60-step](evidence/dreamy-browser-comparison.png)
+[Original comparison screenshot withheld from the distribution pending rights review.]
 
 This is a genuine Chrome screenshot of a read-only QA comparison view populated
 with saved outputs, not a screenshot of a live generation completing in the main
 app. The settings in its caption match the experiment above.
 
-![Tree and mountain detail comparison](../../outputs/final_qa/detail-comparison.png)
+[Local detail comparison withheld from the distribution pending rights review.]
 
 This generated comparison panel shows original, previous 128/20, guided 128/20,
 and guided 256/60. It is a panel of actual pixels, not a browser screenshot.

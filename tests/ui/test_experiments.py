@@ -70,7 +70,9 @@ def test_actual_checkpoint_inference_if_available(tmp_path: Path) -> None:
     if not pretrained_checkpoint_path().is_file():
         pytest.skip("Official cached encoder is unavailable")
     info, rows, graph, samples, available = experiment_info()
-    assert available and len(rows) == checkpoint["epoch"] and graph and samples
+    assert available and len(rows) == checkpoint["epoch"] and graph
+    if not samples:
+        assert "image is unavailable" in info
     content = tmp_path / "content.png"
     style = tmp_path / "style.png"
     Image.new("RGB", (120, 96), (70, 120, 200)).save(content)
