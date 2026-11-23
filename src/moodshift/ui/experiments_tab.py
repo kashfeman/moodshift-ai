@@ -25,6 +25,7 @@ def build_experiments(controller: UiController) -> None:
         label="Recorded training and validation loss curve",
         interactive=False,
         format="png",
+        buttons=["download", "fullscreen"],
         visible=graph is not None,
     )
     gr.Markdown("### Held-out validation examples")
@@ -36,6 +37,7 @@ def build_experiments(controller: UiController) -> None:
             height="auto",
             object_fit="contain",
             interactive=False,
+            buttons=["download", "download_all", "fullscreen"],
         )
     else:
         gr.Markdown("Validation example images are not available locally.")
@@ -68,7 +70,12 @@ and resized to 96 × 96. No grade or optimization engine is substituted if it fa
         else "Experimental inference is unavailable. Check the evidence above."
     )
     with gr.Row():
-        result = gr.Image(label="Experimental output", interactive=False, format="png")
+        result = gr.Image(
+            label="Experimental output",
+            interactive=False,
+            format="png",
+            buttons=["download", "fullscreen"],
+        )
         comparison = gr.ImageSlider(
             label="Cropped content / trained output",
             interactive=False,

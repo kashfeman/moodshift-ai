@@ -56,7 +56,7 @@ def create_app(controller: UiController | None = None) -> gr.Blocks:
                             interactive=False,
                             height=360,
                             format="png",
-                            buttons=["fullscreen"],
+                            buttons=["download", "fullscreen"],
                         )
                     download = gr.DownloadButton(
                         "Download lossless PNG", value=None, variant="secondary"

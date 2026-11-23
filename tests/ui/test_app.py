@@ -82,3 +82,33 @@ def test_launch_port_validation() -> None:
     with pytest.raises(SystemExit) as error:
         main(["--port", "0"])
     assert error.value.code == 2
+
+
+def test_local_image_buttons_exclude_spaces_share(
+    controller: UiController, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Image outputs retain download/fullscreen without a Spaces-only action."""
+    from moodshift.ui import experiments_tab
+
+    image = Image.new("RGB", (2, 2))
+    monkeypatch.setattr(
+        experiments_tab,
+        "experiment_info",
+        lambda: ("Local evidence", [], image, [(image, "Example")], False),
+    )
+    app = create_app(controller)
+    try:
+        components = app.config["components"]
+        for component in components:
+            if component["type"] in {"image", "gallery"}:
+                assert "share" not in component["props"]["buttons"]
+        for label in (
+            "Generated RGB image",
+            "Experimental output",
+            "Recorded training and validation loss curve",
+            "Content, style, and trained output",
+        ):
+            component = next(c for c in components if c["props"].get("label") == label)
+            assert {"download", "fullscreen"} <= set(component["props"]["buttons"])
+    finally:
+        app.close()
