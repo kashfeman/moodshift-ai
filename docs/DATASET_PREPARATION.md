@@ -1,4 +1,4 @@
-﻿# Preparing training photographs
+# Preparing training photographs
 
 This milestone prepares data loading only. No photographs are included, downloaded,
 or used to train the decoder. Obtain real photographs you have permission to use.
@@ -59,7 +59,7 @@ weights; it fails if they are unavailable or fail the existing checksum check.
 It never substitutes random encoder weights. Validate your photographs first:
 
 ```powershell
-.venv/Scripts/python.exe -m moodshift.engine.train_decoder --data data --output checkpoints/my_run --epochs 5 --size 96 --batch-size 1 --learning-rate 0.001 --seed 0 --threads 2 --device cpu
+.venv/Scripts/python.exe -m moodshift.engine.train_decoder --data data --output checkpoints/my_run --epochs 5 --size 96 --batch-size 1 --learning-rate 0.0001 --seed 0 --threads 2 --device cpu
 ```
 
 The output directory must not already exist. Each completed epoch saves
@@ -76,3 +76,10 @@ files, and cross-split images with identical decoded RGB pixels. It cannot detec
 near-duplicates or the same photograph saved with lossy changes; inspect the
 splits manually. Validation does not update model parameters. A small dataset and
 short CPU run are an initial experiment, not a demonstration of generalization.
+
+The current objective normalizes the feature losses and adds an RGB identity
+reconstruction loss; decoder gradients are clipped to a norm of 1. The objective
+changed after the first experiment, so its old checkpoints cannot be resumed with
+the new objective and their loss values are not directly comparable. The new
+checkpoint format records the objective version. Both checkpoints can still be
+loaded for inference with `ImageDecoder`.

@@ -89,3 +89,9 @@ def test_train_resume_and_reload(
         bad = args("bad", 3, checkpoint)
         bad.seed = 8
         run(bad)
+    legacy = torch.load(checkpoint, weights_only=True)
+    del legacy["objective_version"]
+    legacy_path = tmp_path / "legacy.pt"
+    torch.save(legacy, legacy_path)
+    with pytest.raises(ValueError, match="incompatible training objective"):
+        run(args("legacy", 2, legacy_path))

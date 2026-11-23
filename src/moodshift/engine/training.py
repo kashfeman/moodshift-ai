@@ -142,14 +142,21 @@ class ImageDecoder(nn.Module):
 class TrainingConfig:
     """Adam and objective settings for a single decoder training step."""
 
-    learning_rate: float = 1e-3
+    learning_rate: float = 1e-4
     content_weight: float = 1.0
     style_weight: float = 1.0
+    reconstruction_weight: float = 10.0
     eps: float = 1e-5
 
     def __post_init__(self) -> None:
         """Reject invalid optimization settings."""
-        for name in ("learning_rate", "content_weight", "style_weight", "eps"):
+        for name in (
+            "learning_rate",
+            "content_weight",
+            "style_weight",
+            "reconstruction_weight",
+            "eps",
+        ):
             value = getattr(self, name)
             if (
                 isinstance(value, bool)
@@ -161,13 +168,54 @@ class TrainingConfig:
                 raise ValueError(
                     f"{name} must be positive or a nonnegative loss weight"
                 )
-        if self.content_weight == 0 and self.style_weight == 0:
+        if (
+            self.content_weight == 0
+            and self.style_weight == 0
+            and self.reconstruction_weight == 0
+        ):
             raise ValueError("at least one loss weight must be positive")
 
 
 def make_optimizer(decoder: ImageDecoder, config: TrainingConfig) -> torch.optim.Adam:
     """Create an Adam optimizer containing only decoder parameters."""
     return torch.optim.Adam(decoder.parameters(), lr=config.learning_rate)
+
+
+def decoder_objective(
+    encoder: EncoderAdapter,
+    decoder: ImageDecoder,
+    content: Tensor,
+    style: Tensor,
+    config: TrainingConfig,
+) -> dict[str, Tensor]:
+    """Compute normalized feature losses and an RGB identity reconstruction loss."""
+    with torch.no_grad():
+        content_features = encoder(content)
+        style_features = encoder(style)
+        target = align_features(content_features, style_features, config.eps)
+        style_mean, style_std = feature_statistics(style_features, config.eps)
+    generated = decoder(target, tuple(content.shape[-2:]))
+    generated_features = encoder(generated)
+    content_loss = F.mse_loss(
+        generated_features, target
+    ) / target.square().mean().clamp_min(config.eps)
+    generated_mean, generated_std = feature_statistics(generated_features, config.eps)
+    style_loss = (
+        F.mse_loss(generated_mean, style_mean) + F.mse_loss(generated_std, style_std)
+    ) / (style_mean.square().mean() + style_std.square().mean()).clamp_min(config.eps)
+    reconstruction = decoder(content_features, tuple(content.shape[-2:]))
+    reconstruction_loss = F.mse_loss(reconstruction, content)
+    loss = (
+        config.content_weight * content_loss
+        + config.style_weight * style_loss
+        + config.reconstruction_weight * reconstruction_loss
+    )
+    return {
+        "loss": loss,
+        "content_loss": content_loss,
+        "style_loss": style_loss,
+        "reconstruction_loss": reconstruction_loss,
+    }
 
 
 def training_step(
@@ -190,19 +238,8 @@ def training_step(
             "optimizer must contain exactly the trainable decoder parameters"
         )
     optimizer.zero_grad(set_to_none=True)
-    with torch.no_grad():
-        content_features = encoder(content)
-        style_features = encoder(style)
-        target = align_features(content_features, style_features, config.eps)
-        style_mean, style_std = feature_statistics(style_features, config.eps)
-    generated = decoder(target, tuple(content.shape[-2:]))
-    generated_features = encoder(generated)
-    content_loss = F.mse_loss(generated_features, target)
-    generated_mean, generated_std = feature_statistics(generated_features, config.eps)
-    style_loss = F.mse_loss(generated_mean, style_mean) + F.mse_loss(
-        generated_std, style_std
-    )
-    loss = config.content_weight * content_loss + config.style_weight * style_loss
+    losses = decoder_objective(encoder, decoder, content, style, config)
+    loss = losses["loss"]
     if not torch.isfinite(loss):
         raise ValueError("training loss is not finite")
     loss.backward()
@@ -212,9 +249,8 @@ def training_step(
     ):
         optimizer.zero_grad(set_to_none=True)
         raise ValueError("decoder gradients are not finite")
+    nn.utils.clip_grad_norm_(
+        decoder.parameters(), max_norm=1.0, error_if_nonfinite=True
+    )
     optimizer.step()
-    return {
-        "loss": loss.item(),
-        "content_loss": content_loss.item(),
-        "style_loss": style_loss.item(),
-    }
+    return {name: value.item() for name, value in losses.items()}

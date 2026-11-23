@@ -7,7 +7,6 @@ from pathlib import Path
 
 import torch
 from PIL import Image, ImageDraw
-from torch.nn import functional as F
 
 from moodshift.engine.dataset import inspect_dataset, make_data_loader
 from moodshift.engine.model_loader import load_feature_extractor
@@ -17,7 +16,7 @@ from moodshift.engine.training import (
     ImageDecoder,
     TrainingConfig,
     align_features,
-    feature_statistics,
+    decoder_objective,
     make_optimizer,
     training_step,
 )
@@ -26,22 +25,10 @@ from moodshift.engine.training import (
 def evaluate_batch(encoder, decoder, content, style, config):
     """Compute the same objective as training without updating any parameters."""
     with torch.no_grad():
-        target = align_features(encoder(content), encoder(style), config.eps)
-        output = decoder(target, tuple(content.shape[-2:]))
-        output_features = encoder(output)
-        style_features = encoder(style)
-        mean, std = feature_statistics(output_features, config.eps)
-        style_mean, style_std = feature_statistics(style_features, config.eps)
-        content_loss = F.mse_loss(output_features, target)
-        style_loss = F.mse_loss(mean, style_mean) + F.mse_loss(std, style_std)
-        loss = config.content_weight * content_loss + config.style_weight * style_loss
-        if not torch.isfinite(loss):
+        losses = decoder_objective(encoder, decoder, content, style, config)
+        if not all(torch.isfinite(value) for value in losses.values()):
             raise ValueError("validation loss is not finite")
-        return {
-            "loss": loss.item(),
-            "content_loss": content_loss.item(),
-            "style_loss": style_loss.item(),
-        }
+        return {name: value.item() for name, value in losses.items()}
 
 
 def validate_split(report):
@@ -75,7 +62,7 @@ def average_batches(rows):
         raise ValueError("Dataset produced no batches")
     return {
         key: sum(size * row[key] for size, row in rows) / count
-        for key in ("loss", "content_loss", "style_loss")
+        for key in ("loss", "content_loss", "style_loss", "reconstruction_loss")
     }
 
 
@@ -136,6 +123,8 @@ def run(args):
     start = 0
     if args.resume:
         checkpoint = torch.load(args.resume, map_location="cpu", weights_only=True)
+        if checkpoint.get("objective_version") != 2:
+            raise ValueError("Checkpoint uses an incompatible training objective")
         expected = {
             "size": args.size,
             "batch_size": args.batch_size,
@@ -194,6 +183,7 @@ def run(args):
         torch.save(
             {
                 "epoch": epoch,
+                "objective_version": 2,
                 "decoder": decoder.state_dict(),
                 "optimizer": optimizer.state_dict(),
                 "history": history,
@@ -237,7 +227,7 @@ def main():
     parser.add_argument(
         "--epochs", type=int, default=5, help="total epochs including resumed epochs"
     )
-    parser.add_argument("--learning-rate", type=float, default=0.001)
+    parser.add_argument("--learning-rate", type=float, default=0.0001)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--size", type=int, choices=(96, 128), default=96)
     parser.add_argument("--seed", type=int, default=0)
