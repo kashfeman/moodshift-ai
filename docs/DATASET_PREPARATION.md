@@ -83,3 +83,23 @@ changed after the first experiment, so its old checkpoints cannot be resumed wit
 the new objective and their loss values are not directly comparable. The new
 checkpoint format records the objective version. Both checkpoints can still be
 loaded for inference with `ImageDecoder`.
+
+## Experimental content-guided decoder
+
+`python -m moodshift.engine.train_guided --data data --output checkpoints/guided_run --epochs 5 --seed 0 --previous checkpoints/experiment_7c1`
+starts a new CPU-only experiment with cached official frozen encoder weights,
+96-pixel images, batch size 1, Adam at 0.0001, and clipped gradients. The output
+directory must not exist. The optional previous run must contain matching saved
+validation inputs; the command checks their RGB pixels before generating comparison
+panels. Leave out `--previous` to train without a panel. The new checkpoint uses
+`GuidedDecoder`, not `ImageDecoder`; the two state dictionaries are incompatible.
+
+The guided decoder uses content RGB as a full-resolution logit skip and predicts
+bounded, learned RGB shifts from AdaIN-aligned SqueezeNet features and content.
+Its loss combines normalized feature and style statistics, identity RGB MSE
+(weight 10), and stylized-image edge L1 (weight 2). The skip preserves edges by
+design, so visual similarity to content alone does not prove effective style
+transfer. Measure output changes when swapping style references. Results can look
+close to the input and require broader evaluation; this experiment is not connected
+to the application. The command saves epoch metrics and a reloadable checkpoint but
+does not support resuming training.
