@@ -15,11 +15,12 @@ from moodshift.ui.components import (
     project_information,
 )
 from moodshift.ui.controller import UiController
+from moodshift.ui.experiments_tab import build_experiments
 from moodshift.ui.helpers import friendly_error, mode_presentation
 
 
 def create_app(controller: UiController | None = None) -> gr.Blocks:
-    """Build local UI/queue without launching a server or initializing a model."""
+    """Build the local UI and check availability of the experimental model."""
     controller = controller or UiController()
     atexit.register(controller.close)
     with gr.Blocks(
@@ -29,52 +30,56 @@ def create_app(controller: UiController | None = None) -> gr.Blocks:
         fill_width=True,
     ) as app:
         gr.HTML(HERO)
-        with gr.Row(elem_id="workspace"):
-            with gr.Column(scale=4, min_width=320, elem_id="controls"):
-                form = build_form()
-                generate = gr.Button(
-                    "Generate →", variant="primary", elem_id="generate"
-                )
-            with gr.Column(scale=6, min_width=360, elem_id="results"):
-                gr.Markdown("### 03 · A new atmosphere")
-                status = gr.Markdown(
-                    "**Ready.** Upload a photograph to begin.", elem_id="status"
-                )
-                with gr.Tab("Before / after"):
-                    comparison = gr.ImageSlider(
-                        label="Before ← drag → After",
-                        interactive=False,
-                        type="pil",
-                        format="png",
-                        height=360,
+        with gr.Tab("Studio"):
+            with gr.Row(elem_id="workspace"):
+                with gr.Column(scale=4, min_width=320, elem_id="controls"):
+                    form = build_form()
+                    generate = gr.Button(
+                        "Generate →", variant="primary", elem_id="generate"
                     )
-                with gr.Tab("Result"):
-                    result = gr.Image(
-                        label="Generated RGB image",
-                        interactive=False,
-                        height=360,
-                        format="png",
-                        buttons=["fullscreen"],
+                with gr.Column(scale=6, min_width=360, elem_id="results"):
+                    gr.Markdown("### 03 · A new atmosphere")
+                    status = gr.Markdown(
+                        "**Ready.** Upload a photograph to begin.", elem_id="status"
                     )
-                download = gr.DownloadButton(
-                    "Download lossless PNG", value=None, variant="secondary"
-                )
-                summary = gr.Markdown(
-                    "Execution facts will appear here after generation."
-                )
-                with gr.Accordion("Effective settings & metadata", open=False):
-                    metadata = gr.JSON(label="Actual processing metadata")
-        gr.Examples(
-            examples=[
-                ["grade", "cinematic", 70, "preview"],
-                ["grade", "sunset", 65, "preview"],
-                ["hybrid", "dreamy", 50, "preview"],
-            ],
-            inputs=[form.mode, form.preset, form.intensity, form.quality],
-            label="Suggested settings · upload your own image",
-            cache_examples=False,
-        )
-        project_information()
+                    with gr.Tab("Before / after"):
+                        comparison = gr.ImageSlider(
+                            label="Before ← drag → After",
+                            interactive=False,
+                            type="pil",
+                            format="png",
+                            height=360,
+                        )
+                    with gr.Tab("Result"):
+                        result = gr.Image(
+                            label="Generated RGB image",
+                            interactive=False,
+                            height=360,
+                            format="png",
+                            buttons=["fullscreen"],
+                        )
+                    download = gr.DownloadButton(
+                        "Download lossless PNG", value=None, variant="secondary"
+                    )
+                    summary = gr.Markdown(
+                        "Execution facts will appear here after generation."
+                    )
+                    with gr.Accordion("Effective settings & metadata", open=False):
+                        metadata = gr.JSON(label="Actual processing metadata")
+            gr.Examples(
+                examples=[
+                    ["grade", "cinematic", 70, "preview"],
+                    ["grade", "sunset", 65, "preview"],
+                    ["hybrid", "dreamy", 50, "preview"],
+                ],
+                inputs=[form.mode, form.preset, form.intensity, form.quality],
+                label="Suggested settings · upload your own image",
+                cache_examples=False,
+            )
+            project_information()
+
+        with gr.Tab("Training & Experiments"):
+            build_experiments(controller)
 
         def preview(path: str | None) -> tuple:
             try:

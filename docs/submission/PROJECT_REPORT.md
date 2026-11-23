@@ -229,3 +229,27 @@ local evaluation. SqueezeNet, its ImageNet-trained parameters, the style-transfe
 principle and guided-filter mathematics are third-party contributions. Source
 photo authorship/license has not been established by this QA session; no claim
 of original photographic authorship or redistribution permission is made.
+
+## 15. Experimental trained decoder and evidence interface
+
+In addition to the original frozen-feature, per-image optimization described above,
+this project trained a content-guided CNN decoder with 250,691 trainable parameters.
+The official SqueezeNet encoder was frozen to retain its pretrained representation
+and keep this small CPU experiment practical. The decoder alone was trained with
+Adam (learning rate 0.0001, 96 × 96, batch size one, gradient clipping) for five
+epochs on local photographs. The experiment used 11 content and 11 style training
+photographs and two of each held out for validation. Counts come from the experiment
+session; the saved checkpoint does not independently store dataset counts. Images
+are not included, and their authorship and redistribution rights are not asserted.
+Exact-byte and decoded-pixel checks did not detect cross-split copies; these checks
+cannot exclude near duplicates.
+
+The guided decoder retains image structure through a full-resolution content skip
+and learns a bounded style-conditioned change. The saved final training and
+validation losses were 0.967978 and 0.881958 under this experiment's objective;
+these cannot be directly compared with earlier objectives. On two held-out pairs,
+style swapping changed mean RGB by approximately 0.0103 in [0,1]; images preserved
+structure but showed subtle style changes. This is not evidence of strong mood
+transfer or generalization. The separate Training & Experiments tab displays
+available local evidence and permits explicit CPU inference with the pinned trained
+checkpoint. It does not alter Grade, Neural, or Hybrid Studio processing.

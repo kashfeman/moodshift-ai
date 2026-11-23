@@ -413,3 +413,53 @@ ignored `outputs/milestone3/`; they are not committed.
 The separate 20-step, 96x80 CLI run reduced the normalized pretrained style error
 from 0.539252 to 0.288079, with finite output in [0,1]. CUDA was unavailable in the
 installed CPU build and has not been tested on this workstation.
+
+## Training & Experiments tab
+
+Launch the app from the project root using:
+
+```powershell
+.venv/Scripts/python.exe -m moodshift.ui.app
+```
+
+The Studio retains the original Color Grade, Neural Transfer and Hybrid modes.
+A separate **Training & Experiments** tab presents locally available checkpoint
+history, loss curve, and held-out content, style and generated images. The trained
+checkpoint records its architecture, epoch history and seed; it does not embed the
+historical image counts or every training setting. The tab labels the current local
+dataset inventory separately from historical facts. Missing evidence is reported.
+
+The experimental decoder is a 250,691-parameter, content-guided model trained with
+Adam on CPU at 96 × 96 with batch size 1 for five epochs. The official pretrained
+SqueezeNet 1.1 encoder remains frozen: its learned ImageNet features provide a
+stable perceptual representation while only decoder weights are updated. Training
+used the local photographic content and style folders; validation used separately
+held-out folders. The run used 11 content and 11 style training images and two of
+each for validation, as recorded during the experiment; these historical counts
+are not embedded in the checkpoint. No dataset is included or redistributed.
+Cross-split exact byte and decoded-pixel checks were performed; near duplicates and
+photo licensing require human assessment.
+
+Experimental inference center-crops both uploads to 96 × 96 and runs the trained
+CPU decoder once. Its skip path preserves structure, but style influence is subtle:
+on two held-out examples swapping styles changed mean RGB values by about 0.0103 on
+the 0–1 scale. This does not establish broad quality or generalization. The original
+Neural Transfer mode instead optimizes pixels for each request through frozen
+SqueezeNet features, and Hybrid combines that existing approach with a grade.
+
+### Restoring the local experiment
+
+Checkpoints, photographs, and generated evidence are ignored by Git and are not
+included with a clone. On another machine, privately copy the **trusted, original**
+`experiment_7c2` folder into `checkpoints/experiment_7c2/`, including
+`checkpoint.pt`, `losses.csv`, `loss_curve.png`, and `val_*` PNGs if available.
+The app accepts only the exact guided checkpoint with SHA-256
+`59594434fb728daf2f9dc5cc27ec0e911ce4755819fcb05f54c0cf83b4c5a485`;
+other or modified checkpoints are rejected even if their architecture matches.
+Only use a copy from a source you trust. Install the project dependencies and
+restore the official TorchVision SqueezeNet 1.1 weights to its normal PyTorch cache
+(or configure `TORCH_HOME` to the cache containing them). The app checks the
+encoder's official checkpoint hash and does not download weights or use random
+weights for experimental inference. Restart the app after restoring files. If a
+checkpoint, encoder, chart, or example is missing, the tab reports what is available;
+experimental generation remains disabled when required weights cannot load.
