@@ -51,3 +51,28 @@ shape `N x 3 x size x size` in `[0, 1]`. Every content image appears once per pa
 seeded styles cycle if the style set is smaller. Pair assignments are fixed for a
 given seed, training order is seeded and shuffled, and validation order is fixed.
 Use separate loader instances with the same seed to reproduce the same sequence.
+
+## CPU decoder training
+
+The experimental training CLI uses the cached official ImageNet SqueezeNet 1.1
+weights; it fails if they are unavailable or fail the existing checksum check.
+It never substitutes random encoder weights. Validate your photographs first:
+
+```powershell
+.venv/Scripts/python.exe -m moodshift.engine.train_decoder --data data --output checkpoints/my_run --epochs 5 --size 96 --batch-size 1 --learning-rate 0.001 --seed 0 --threads 2 --device cpu
+```
+
+The output directory must not already exist. Each completed epoch saves
+`checkpoint.pt` with decoder, optimizer, settings and history, plus `losses.csv`
+and `loss_curve.png`. At the end the CLI reloads the saved checkpoint and writes
+before, style, and after images from the validation set. To resume, provide
+`--resume checkpoints/my_run/checkpoint.pt` and a new output directory, increase
+`--epochs` to the desired total, and keep size, batch size, seed, and learning rate
+the same. Keep the dataset unchanged for a meaningful continuation. Checkpoints
+must come from a trusted source. An interrupted epoch is not checkpointed.
+
+The training command refuses failed starter checks, byte-identical cross-split
+files, and cross-split images with identical decoded RGB pixels. It cannot detect
+near-duplicates or the same photograph saved with lossy changes; inspect the
+splits manually. Validation does not update model parameters. A small dataset and
+short CPU run are an initial experiment, not a demonstration of generalization.

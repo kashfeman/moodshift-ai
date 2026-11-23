@@ -48,3 +48,6 @@ Thumbs.db
 
 # Local training images
 /data/
+
+# Local decoder experiments and checkpoints
+/checkpoints/
