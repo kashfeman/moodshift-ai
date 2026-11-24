@@ -9,6 +9,7 @@ from PIL import Image
 
 from moodshift.ui import experiments
 from moodshift.ui.app import create_app
+from moodshift.ui.components import CSS
 from moodshift.ui.controller import UiController
 from moodshift.ui.experiments import (
     ExperimentError,
@@ -54,6 +55,23 @@ def test_ui_has_separate_training_tab() -> None:
         assert any(c["type"] == "dataframe" for c in app.config["components"])
         assert any(fn.api_name == "generate_experimental" for fn in app.fns.values())
         assert any(fn.api_name == "generate" for fn in app.fns.values())
+        control = next(
+            c
+            for c in app.config["components"]
+            if c["props"].get("label") == "Decoder color-change amplification"
+        )
+        assert control["props"]["value"] == 1.5
+        assert control["props"]["minimum"] == 1.0
+        assert control["props"]["maximum"] == 2.0
+        for element in ("experimental-result", "experimental-comparison"):
+            component = next(
+                c
+                for c in app.config["components"]
+                if c["props"].get("elem_id") == element
+            )
+            assert component["props"]["height"] == 384
+        assert "#experimental-result img" in CSS
+        assert "image-rendering: pixelated" in CSS
     finally:
         app.close()
         controller.close()
@@ -87,4 +105,41 @@ def test_actual_checkpoint_inference_if_available(tmp_path: Path) -> None:
         torch.set_num_threads(previous_threads)
     assert output.mode == "RGB" and output.size == (96, 96)
     assert comparison[0].size == comparison[1].size == output.size
-    assert Path(download).is_file() and Image.open(download).size == output.size
+    assert Path(download).is_file()
+    with Image.open(download) as png:
+        assert png.size == output.size
+        assert png.convert("RGB").tobytes() == output.tobytes()
+    high, pair, high_download, native, native_download = (
+        experiments.infer_with_reconstruction(
+            str(content), str(style), experiments.RUN_NAME, tmp_path
+        )
+    )
+    assert native.tobytes() == output.tobytes()
+    assert high.size == pair[0].size == pair[1].size == (96, 96)
+    with Image.open(high_download) as png:
+        assert png.convert("RGB").tobytes() == high.tobytes()
+    with Image.open(native_download) as png:
+        assert png.convert("RGB").tobytes() == output.tobytes()
+
+
+def test_held_out_gallery_requires_matching_originals(tmp_path: Path) -> None:
+    """Only an exact matching original may be used for a saved decoder result."""
+    from moodshift.imaging.decoder_reconstruction import decoder_input_from_original
+
+    directory = tmp_path / "checkpoints" / experiments.RUN_NAME
+    directory.mkdir(parents=True)
+    for role, color in (("content", (100, 120, 140)), ("style", (190, 100, 80))):
+        folder = tmp_path / "data" / "val" / role
+        folder.mkdir(parents=True)
+        original = Image.new("RGB", (240, 160), color)
+        original.save(folder / "original.png")
+        decoder_input_from_original(original).save(directory / f"val_1_{role}.png")
+    Image.new("RGB", (96, 96), (110, 120, 140)).save(directory / "val_1_guided.png")
+    samples, messages = experiments.held_out_samples(tmp_path)
+    assert len(samples) == 3 and samples[0][0].size == samples[2][0].size == (160, 160)
+    assert any("Validation 2" in message for message in messages)
+    Image.new("RGB", (240, 160), (1, 2, 3)).save(
+        tmp_path / "data" / "val" / "content" / "original.png"
+    )
+    samples, messages = experiments.held_out_samples(tmp_path)
+    assert not samples and any("Validation 1" in message for message in messages)

@@ -9,7 +9,7 @@ from moodshift.config import DEFAULT_CONFIG, AppConfig
 from moodshift.engine.settings import TransferSettings
 from moodshift.imaging.grading import apply_grade, blend_images
 from moodshift.imaging.io import load_image
-from moodshift.imaging.reconstruction import reconstruct_hybrid
+from moodshift.imaging.reconstruction import reconstruct_hybrid, reconstruct_neural
 from moodshift.imaging.transforms import resize_to_fit
 from moodshift.presets import MoodPreset
 from moodshift.services.models import (
@@ -73,7 +73,8 @@ class MoodTransferService:
 
         Default output has original dimensions. Explicit max_size limits output;
         otherwise neural output is restored to the original grid. Hybrid transfers
-        guided neural color residuals onto source detail; Neural enlarges RGB pixels.
+        guided neural color residuals onto source detail; Neural also mixes in
+        some directly enlarged neural texture.
         No crop or geometric warp is applied. Zero intensity bypasses all effects.
         """
         settings = MoodSettings() if settings is None else settings
@@ -105,8 +106,8 @@ class MoodTransferService:
             neural_size = stylized.size
             if settings.mode == "hybrid":
                 stylized = reconstruct_hybrid(content, stylized)
-            elif stylized.size != content.size:
-                stylized = stylized.resize(content.size, Image.Resampling.LANCZOS)
+            else:
+                stylized = reconstruct_neural(content, stylized)
         if grading:
             assert preset is not None
             stylized = apply_grade(
@@ -164,7 +165,7 @@ class MoodTransferService:
             neural_size=neural_size,
             reconstruction="content-guided-residual"
             if neural and settings.mode == "hybrid"
-            else "direct-rgb"
+            else "detail-guided-neural-blend"
             if neural
             else "none",
             settings=EffectiveSettings(

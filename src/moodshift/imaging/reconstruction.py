@@ -47,3 +47,15 @@ def reconstruct_hybrid(content: Image.Image, neural: Image.Image) -> Image.Image
         correction[..., channel] = slope * full_guide + intercept
     pixels = np.rint(np.clip(original + correction, 0, 1) * 255).astype(np.uint8)
     return rgb_array_to_pil(pixels)
+
+
+def reconstruct_neural(content: Image.Image, neural: Image.Image) -> Image.Image:
+    """Combine neural texture with a stronger source-detail-guided reconstruction.
+
+    The direct neural image contributes 30 percent, retaining some optimized
+    texture; the guided residual supplies 70 percent. No neural inference is
+    substituted, and both paths use the same genuine neural output.
+    """
+    guided = reconstruct_hybrid(content, neural)
+    direct = neural.resize(content.size, Image.Resampling.LANCZOS)
+    return Image.blend(guided, direct, 0.30)

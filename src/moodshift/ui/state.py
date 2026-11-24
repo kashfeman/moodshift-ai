@@ -1,5 +1,6 @@
 """Typed presentation inputs and outputs, independent of Gradio components."""
 
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -29,14 +30,30 @@ class UiParameters:
     seed: int = 0
     grain: bool = True
     style_strength: float = 1.0
+    boost_enabled: bool = False
+    boost_reference: str | None = None
+    boost_strength: float = 50
 
     def settings(self) -> MoodSettings:
         """Validate actual controls through the existing service settings model."""
         if self.device not in ("auto", "cpu", "cuda"):
             raise ValueError("Choose Auto, CPU, or CUDA for the device.")
-        for value in (self.custom_steps, self.limit_output, self.offline, self.grain):
+        for value in (
+            self.custom_steps,
+            self.limit_output,
+            self.offline,
+            self.grain,
+            self.boost_enabled,
+        ):
             if type(value) is not bool:
                 raise ValueError("Checkbox controls must be true or false.")
+        if (
+            isinstance(self.boost_strength, bool)
+            or not isinstance(self.boost_strength, (int, float))
+            or not math.isfinite(self.boost_strength)
+            or not 0 <= self.boost_strength <= 100
+        ):
+            raise ValueError("Reference Mood Boost strength must be between 0 and 100.")
         return MoodSettings(
             mode=self.mode,
             intensity=self.intensity,

@@ -103,3 +103,111 @@ transfer. Measure output changes when swapping style references. Results can loo
 close to the input and require broader evaluation; this experiment is not connected
 to the application. The command saves epoch metrics and a reloadable checkpoint but
 does not support resuming training.
+
+### Controlled loss-weight comparison
+
+Both commands below start from newly initialized decoder weights. With the same
+seed, unchanged dataset and official encoder checkpoint, software versions, and
+CPU settings, they use the same initialization and pairing order. Use separate,
+not-yet-existing output directories; neither run resumes an older checkpoint.
+
+```powershell
+.venv/Scripts/python.exe -m moodshift.engine.train_guided --data data --output checkpoints/step8b_baseline --epochs 5 --seed 0 --loss-preset baseline
+.venv/Scripts/python.exe -m moodshift.engine.train_guided --data data --output checkpoints/step8b_stronger_style --epochs 5 --seed 0 --loss-preset stronger-style
+```
+
+Baseline content/style/identity/edge weights are 1/1/10/2; stronger-style uses
+1/3/5/1. Individual nonnegative finite values may be specified using
+`--content-weight`, `--style-weight`, `--identity-weight`, and `--edge-weight`;
+at least one must be positive. Overrides modify the selected preset. Each run
+saves its actual weights and settings in `experiment.json` and `checkpoint.pt`.
+Compare `initial_decoder_sha256`, `dataset_sha256`, `encoder_checkpoint_sha256`,
+seed, epochs, optimizer and environment before interpreting results. These
+fingerprints help detect differences; they are not a guarantee of bitwise
+reproducibility across systems or changes during a run. The CSV retains unweighted
+component losses; total losses across presets use different weights and are not
+directly comparable. No runs have been started by this configuration change.
+
+### Reference-conditioned experiment (not yet trained)
+
+A separate `style-film-v1` decoder receives the actual style image's SqueezeNet
+layer-9 channel mean and standard deviation. A small MLP applies bounded feature
+modulation and a bounded RGB color contribution to the learned residual. Its
+full-resolution content shortcut and baseline loss terms remain in place. It is
+not a drop-in replacement for `guided-v1` checkpoints and is not connected to UI.
+Only a one-step training smoke test has been performed; reference conditioning
+is connected, but improved transfer, sharpness, and color quality are not yet
+established. The encoder remains frozen.
+
+For a controlled future five-epoch run against the existing Step 8B baseline,
+use the same unchanged dataset, cached encoder, seed and baseline loss weights:
+
+```powershell
+.venv/Scripts/python.exe -m moodshift.engine.train_guided --data data --output checkpoints/step8d_style_film --epochs 5 --seed 0 --loss-preset baseline --architecture style-film-v1
+```
+
+This starts from scratch and creates a new directory. Under the same seed, the
+shared convolution layers use the same initialization as the baseline; additional
+conditioning parameters are new. After a real completed run, compare identical
+validation content/style pairs, including swapped references, with:
+
+```powershell
+.venv/Scripts/python.exe -m moodshift.engine.compare_conditioned --baseline checkpoints/step8b_baseline/checkpoint.pt --conditioned checkpoints/step8d_style_film/checkpoint.pt --data data --output outputs/step8d_comparison
+```
+
+The comparison refuses mismatched dataset, encoder, seed, training settings, loss
+weights or shared-layer initialization, and never reuses an output directory.
+It writes RGB and edge preservation, layer-9 style statistics, style-swap change,
+and comparison panels. Metrics on two validation photographs cannot establish
+perceptual quality or generalization; inspect outputs for color shifts, artifacts,
+and content detail. Existing guided checkpoints and the Studio remain unchanged.
+
+### RGB-reference-conditioned experiment
+
+`color-film-v1` extends `style-film-v1` with a small trainable branch fed the
+reference image's RGB channel means and standard deviations. It retains the
+feature-conditioning path and content shortcut, and uses the same baseline
+training objective. The new branch does not itself impose a direct RGB matching
+loss, so it can be ignored by training. This architecture is separate from existing
+checkpoints and is not integrated into Studio.
+
+Step 8G trained five CPU epochs with the baseline preset, seed 0, 96px and batch
+size one. Its initialized shared style-film parameters, dataset fingerprint and
+encoder hash match Step 8E. On two held-out content images and two style references,
+the measured style-swap response was weaker than Step 8E, so Step 8E remains the
+preferred experimental checkpoint. Inspect local `outputs/step8g_comparison/`
+metrics and images; these local photographic examples are not redistribution-cleared.
+
+### Reference RGB color-loss experiment
+
+`color-film-v1` also supports the opt-in
+`--reference-color-loss-weight` option. A weight of 1 adds the MSE between
+per-channel RGB means plus the MSE between stabilized population standard
+deviations of output and reference, with RGB in [0,1]. It keeps the original
+content, deep-style, identity and edge losses. Weight zero is the Step 8G default.
+The coefficient is recorded in experiment metadata and the loss is reported
+separately in the CSV. Training starts from scratch in a new output directory.
+
+Step 8H used weight 1, baseline loss weights, seed 0 and five CPU epochs. Its
+full initial decoder, data and encoder fingerprints match Step 8G. On the two
+original validation pairs, Step 8H did not lower its average RGB color-statistics
+error compared with Step 8G or Step 8E. The sample is too small to establish
+quality or generalization. The earlier Step 8E remains the preferred checkpoint
+for reference sensitivity; there is no Studio integration for these models.
+
+## Paired-reference color response experiment
+
+`train_guided` can optionally train `color-film-v1` using a second, byte-distinct
+style image from the same split. The original pair ordering is retained. The
+second reference is selected reproducibly using the epoch seed. Validation pairs
+use only validation images; byte-identical cross-split files are rejected by the
+existing split validation. At least two byte-distinct style files are required in
+each split when this option is enabled.
+
+The mean RGB response loss is `MSE(mean(output_a) - mean(output_b),
+response_target * (mean(style_a) - mean(style_b)))`. Its weight defaults to zero,
+which preserves the existing training path. The response target defaults to 0.25
+and must be between 0 and 1. Both settings are recorded in experiment metadata
+and checkpoints. The paired loss is logged separately. Weighted totals from runs
+using different objectives are not directly comparable. This experimental loss
+may produce unnatural recoloring and needs held-out visual evaluation.

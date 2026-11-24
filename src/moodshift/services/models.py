@@ -89,7 +89,9 @@ class MoodMetadata:
     output_size: tuple[int, int]
     neural_size: tuple[int, int] | None
     settings: EffectiveSettings
-    reconstruction: Literal["none", "direct-rgb", "content-guided-residual"] = "none"
+    reconstruction: Literal[
+        "none", "detail-guided-neural-blend", "content-guided-residual"
+    ] = "none"
 
 
 @dataclass(frozen=True, slots=True)

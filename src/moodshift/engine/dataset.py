@@ -123,20 +123,61 @@ class PairedImageDataset(Dataset[tuple[Tensor, Tensor]]):
 
     def __getitem__(self, index: int) -> tuple[Tensor, Tensor]:
         """Load one pair as RGB float tensors; report files changed after scanning."""
+        return self.load(self.content[index]), self.load(self.style[index])
 
-        def convert(path: Path) -> Tensor:
-            try:
-                image = load_image(path)
-                resized = ImageOps.fit(
-                    image, (self.size, self.size), method=Image.Resampling.LANCZOS
-                )
-                return image_to_tensor(resized, torch.device("cpu")).squeeze(0)
-            except (ImageError, OSError) as error:
-                raise ValueError(
-                    f"Cannot load dataset image {path}: {error}"
-                ) from error
+    def load(self, path: Path) -> Tensor:
+        """Load an image using the same preprocessing for both references."""
+        try:
+            image = load_image(path)
+            resized = ImageOps.fit(
+                image, (self.size, self.size), method=Image.Resampling.LANCZOS
+            )
+            return image_to_tensor(resized, torch.device("cpu")).squeeze(0)
+        except (ImageError, OSError) as error:
+            raise ValueError(f"Cannot load dataset image {path}: {error}") from error
 
-        return convert(self.content[index]), convert(self.style[index])
+
+class PairedReferenceDataset(Dataset[tuple[Tensor, Tensor, Tensor]]):
+    """Add a reproducible, byte-distinct second reference from the same split."""
+
+    def __init__(self, root: str | Path, split: str, size: int = 96, seed: int = 0):
+        """Choose a second reference reproducibly from the requested split."""
+        self.base = PairedImageDataset(root, split, size, seed)
+        styles = list(inspect_dataset(root).files[split, "style"])
+        hashes = {path: hashlib.sha256(path.read_bytes()).digest() for path in styles}
+        rng = random.Random(seed)
+        self.second_style = tuple(
+            rng.choice(candidates)
+            for first in self.base.style
+            for candidates in ([p for p in styles if hashes[p] != hashes[first]],)
+            if candidates
+        )
+        if len(self.second_style) != len(self.base):
+            raise ValueError(f"{split} needs two byte-distinct style references")
+
+    def __len__(self) -> int:
+        """Return the number of content images."""
+        return len(self.base)
+
+    def __getitem__(self, index: int) -> tuple[Tensor, Tensor, Tensor]:
+        """Load content and its two references with the same preprocessing."""
+        content, style = self.base[index]
+        return content, style, self.base.load(self.second_style[index])
+
+
+def make_paired_reference_loader(
+    root: str | Path, split: str, *, size: int = 96, batch_size: int = 1, seed: int = 0
+) -> DataLoader:
+    """Use the original seeded first-reference order and same-split second styles."""
+    if type(batch_size) is not int or not 1 <= batch_size <= 32:
+        raise ValueError("batch_size must be an integer between 1 and 32")
+    return DataLoader(
+        PairedReferenceDataset(root, split, size, seed),
+        batch_size=batch_size,
+        shuffle=split == "train",
+        num_workers=0,
+        generator=torch.Generator().manual_seed(seed),
+    )
 
 
 def make_data_loader(

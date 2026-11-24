@@ -23,6 +23,10 @@ CSS = """
   border-radius: 18px; padding: 20px; background: var(--block-background-fill);}
 #generate {min-height: 48px; font-weight: 650; letter-spacing: .02em;}
 #results {position: sticky; top: 16px;}
+#experimental-result img, #experimental-result canvas {
+  image-rendering: pixelated;
+}
+#experimental-result img {width: 100%; height: 100%; object-fit: contain;}
 .section-label {font-size: 12px; text-transform: uppercase; letter-spacing: .12em;}
 #status {border-radius: 12px; padding: 12px 16px;
   background: var(--background-fill-secondary); min-height: 44px;}
@@ -62,6 +66,9 @@ class Form:
     seed: gr.Number
     grain: gr.Checkbox
     style_strength: gr.Slider
+    boost_enabled: gr.Checkbox
+    boost_reference: gr.File
+    boost_strength: gr.Slider
     neural_group: gr.Column
     explanation: gr.Markdown
     preview: gr.Image
@@ -86,6 +93,9 @@ class Form:
             self.seed,
             self.grain,
             self.style_strength,
+            self.boost_enabled,
+            self.boost_reference,
+            self.boost_strength,
         ]
 
 
@@ -147,6 +157,23 @@ def build_form() -> Form:
             type="filepath",
             file_types=[".png", ".jpg", ".jpeg", ".webp"],
         )
+        with gr.Accordion("Reference Mood Boost", open=False):
+            gr.Markdown(
+                "Optional photographic CIELAB color transfer after neural processing. "
+                "This is separate from neural transfer and does not train the decoder. "
+                "Upload a boost reference; without one the preset result is unchanged."
+            )
+            boost_enabled = gr.Checkbox(
+                value=False, label="Enable Reference Mood Boost"
+            )
+            boost_reference = gr.File(
+                label="Boost reference image (optional)",
+                type="filepath",
+                file_types=[".png", ".jpg", ".jpeg", ".webp"],
+            )
+            boost_strength = gr.Slider(
+                0, 100, value=50, step=1, label="Reference Mood Boost strength"
+            )
         quality = gr.Dropdown(
             choices=[
                 ("Preview · 20 steps / 128px", "preview"),
@@ -226,6 +253,9 @@ def build_form() -> Form:
         seed,
         grain,
         style_strength,
+        boost_enabled,
+        boost_reference,
+        boost_strength,
         neural_group,
         explanation,
         preview,

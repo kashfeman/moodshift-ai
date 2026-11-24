@@ -9,6 +9,11 @@ from uuid import uuid4
 
 from PIL import Image, ImageOps
 
+from moodshift.imaging.decoder_reconstruction import (
+    center_crop_for_decoder,
+    decoder_input_from_original,
+    reconstruct_decoder_color,
+)
 from moodshift.imaging.io import export_image, load_image
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -18,6 +23,65 @@ CHECKPOINT_SHA256 = "59594434fb728daf2f9dc5cc27ec0e911ce4755819fcb05f54c0cf83b4c
 
 class ExperimentError(ValueError):
     """A trained experiment is missing, invalid, or cannot run safely."""
+
+
+def held_out_samples(root: Path) -> tuple[list[tuple[Image.Image, str]], list[str]]:
+    """Reconstruct saved outputs only when both original images match exactly."""
+    from moodshift.engine.dataset import inspect_dataset
+
+    directory = root / "checkpoints" / RUN_NAME
+    report = inspect_dataset(root / "data")
+    candidates = {}
+    for role in ("content", "style"):
+        candidates[role] = []
+        for path in report.files["val", role]:
+            try:
+                original = load_image(path)
+                candidates[role].append(
+                    (decoder_input_from_original(original).tobytes(), original)
+                )
+            except (ValueError, OSError):
+                continue
+    samples: list[tuple[Image.Image, str]] = []
+    messages = []
+    for index in (1, 2):
+        try:
+            saved = {}
+            for key in ("content", "style", "guided"):
+                with Image.open(directory / f"val_{index}_{key}.png") as image:
+                    saved[key] = image.convert("RGB")
+            if any(image.size != (96, 96) for image in saved.values()):
+                raise ValueError("invalid native validation dimensions")
+            matches = {
+                role: [
+                    image
+                    for pixels, image in candidates[role]
+                    if pixels == saved[role].tobytes()
+                ]
+                for role in ("content", "style")
+            }
+            if any(len(matches[role]) != 1 for role in ("content", "style")):
+                raise ValueError(
+                    "matching original photographs unavailable or ambiguous"
+                )
+            source = center_crop_for_decoder(matches["content"][0])
+            style = center_crop_for_decoder(matches["style"][0])
+            result = reconstruct_decoder_color(
+                source, saved["content"], saved["guided"], 1.5
+            )
+            samples.extend(
+                [
+                    (source, f"Validation {index}: original content crop"),
+                    (style, f"Validation {index}: style reference crop"),
+                    (result, f"Validation {index}: reconstructed output (1.5×)"),
+                ]
+            )
+        except (OSError, ValueError, KeyError):
+            messages.append(
+                f"Validation {index} reconstruction unavailable: matching local "
+                "originals or saved 96×96 images are missing or ambiguous."
+            )
+    return samples, messages
 
 
 def load_checkpoint(root: Path = PROJECT_ROOT) -> dict:
@@ -146,23 +210,8 @@ def experiment_info(
             "Loss-curve image is unavailable; checkpoint metrics are listed "
             "when available."
         )
-    samples = []
-    for index in (1, 2):
-        for key, label in (
-            ("content", "Content"),
-            ("style", "Style reference"),
-            ("guided", "Generated"),
-        ):
-            try:
-                with Image.open(directory / f"val_{index}_{key}.png") as image:
-                    image.load()
-                    samples.append(
-                        (image.convert("RGB"), f"Validation {index}: {label}")
-                    )
-            except (OSError, ValueError):
-                messages.append(
-                    f"Validation {index} {label.lower()} image is unavailable."
-                )
+    samples, sample_messages = held_out_samples(root)
+    messages.extend(sample_messages)
     # Compare the optional CSV against the checkpoint.
     try:
         with (directory / "losses.csv").open(
@@ -209,9 +258,7 @@ def infer(
     if selection != RUN_NAME:
         raise ExperimentError("Choose the available trusted checkpoint.")
     checkpoint = load_checkpoint(root)
-    content = ImageOps.fit(
-        load_image(content_path), (96, 96), method=Image.Resampling.LANCZOS
-    )
+    content = decoder_input_from_original(load_image(content_path))
     style = ImageOps.fit(
         load_image(style_path), (96, 96), method=Image.Resampling.LANCZOS
     )
@@ -229,3 +276,24 @@ def infer(
         result = tensor_to_image(decoder(target, pixels))
     download = export_image(result, output_dir / f"moodshift-{uuid4().hex}.png")
     return result, (content, result), str(download)
+
+
+def infer_with_reconstruction(
+    content_path: str | None,
+    style_path: str | None,
+    selection: str | None,
+    output_dir: Path,
+    root: Path = PROJECT_ROOT,
+    amplification: float = 1.5,
+) -> tuple[Image.Image, tuple[Image.Image, Image.Image], str, Image.Image, str]:
+    """Return the unchanged native prediction and a detail-preserving crop."""
+    native, (decoder_input, _), native_file = infer(
+        content_path, style_path, selection, output_dir, root
+    )
+    assert content_path is not None
+    crop = center_crop_for_decoder(load_image(content_path))
+    reconstructed = reconstruct_decoder_color(
+        crop, decoder_input, native, amplification
+    )
+    high_file = export_image(reconstructed, output_dir / f"moodshift-{uuid4().hex}.png")
+    return reconstructed, (crop, reconstructed), str(high_file), native, native_file

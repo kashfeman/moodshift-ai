@@ -13,6 +13,7 @@ from PIL import Image
 
 from moodshift.config import DEFAULT_CONFIG, AppConfig
 from moodshift.imaging.io import export_image, load_image
+from moodshift.imaging.reference_mood import reference_mood_boost
 from moodshift.services.mood_transfer import MoodTransferService
 from moodshift.services.references import resolve_preset
 from moodshift.ui.helpers import format_metadata
@@ -93,20 +94,44 @@ class UiController:
                 reference=reference,
                 settings=settings,
             )
+        image = result.image
+        boost_applied = bool(
+            parameters.boost_enabled
+            and parameters.boost_reference
+            and parameters.boost_strength > 0
+            and result.metadata.neural_applied
+        )
+        if boost_applied:
+            stage("Applying reference photographic color transfer")
+            with load_image(parameters.boost_reference, self.config) as boost_reference:
+                image = reference_mood_boost(
+                    image, boost_reference, parameters.boost_strength
+                )
         stage("Preparing comparison and PNG download")
         self._prune_exports()
-        download = export_image(
-            result.image, self.output_dir / f"moodshift-{uuid4().hex}.png"
-        )
+        download = export_image(image, self.output_dir / f"moodshift-{uuid4().hex}.png")
         before = (
             original
-            if original.size == result.image.size
-            else original.resize(result.image.size, Image.Resampling.LANCZOS)
+            if original.size == image.size
+            else original.resize(image.size, Image.Resampling.LANCZOS)
         )
         summary, metadata = format_metadata(result.metadata)
-        return RenderedResult(
-            result.image, (before, result.image), download, summary, metadata
-        )
+        metadata["reference_mood_boost"] = {
+            "applied": boost_applied,
+            "strength": parameters.boost_strength if boost_applied else 0,
+            "reference_source": "user" if boost_applied else "none",
+        }
+        if boost_applied:
+            summary += (
+                "\n\n**Reference Mood Boost:** Applied photographic LAB color "
+                "transfer after neural processing."
+            )
+        elif parameters.boost_enabled and settings.mode in ("neural", "hybrid"):
+            summary += (
+                "\n\n**Reference Mood Boost:** Not applied (requires an uploaded "
+                "boost reference, nonzero strength, and neural processing)."
+            )
+        return RenderedResult(image, (before, image), download, summary, metadata)
 
     def _prune_exports(self) -> None:
         # Only our flat, UUID-named exports are removed, never uploads/user paths.

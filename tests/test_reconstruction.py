@@ -5,7 +5,7 @@ import pytest
 from PIL import Image
 
 from moodshift.imaging.exceptions import InvalidImageError
-from moodshift.imaging.reconstruction import reconstruct_hybrid
+from moodshift.imaging.reconstruction import reconstruct_hybrid, reconstruct_neural
 
 
 def test_identity_and_original_unchanged() -> None:
@@ -46,3 +46,27 @@ def test_requires_explicit_rgb_normalization() -> None:
     """Invalid modes use the existing typed image exception."""
     with pytest.raises(InvalidImageError):
         reconstruct_hybrid(Image.new("L", (20, 20)), Image.new("RGB", (10, 10)))
+
+
+def test_neural_reconstruction_preserves_detail_and_uses_neural_color() -> None:
+    """The result retains high-frequency detail and changes with neural output."""
+    grid = (np.indices((64, 64)).sum(axis=0) % 2 * 50 + 90).astype(np.uint8)
+    content = Image.fromarray(np.repeat(grid[..., None], 3, axis=2))
+    base = np.asarray(content.resize((16, 16), Image.Resampling.LANCZOS)).copy()
+    warm = Image.fromarray(
+        np.clip(base.astype(int) + [20, 4, 0], 0, 255).astype("uint8")
+    )
+    cool = Image.fromarray(
+        np.clip(base.astype(int) + [0, 4, 20], 0, 255).astype("uint8")
+    )
+    result = np.asarray(reconstruct_neural(content, warm)).astype(float)
+    other = np.asarray(reconstruct_neural(content, cool)).astype(float)
+    direct = np.asarray(warm.resize(content.size, Image.Resampling.LANCZOS)).astype(
+        float
+    )
+    assert (
+        np.abs(np.diff(result, axis=1)).mean()
+        > np.abs(np.diff(direct, axis=1)).mean() + 10
+    )
+    assert np.abs(result - other).mean() > 5
+    assert result.shape == (64, 64, 3)

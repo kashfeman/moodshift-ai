@@ -31,6 +31,9 @@ def make_generate(controller: UiController) -> Callable[..., Iterator[tuple]]:
         seed: int,
         grain: bool,
         style_strength: float,
+        boost_enabled: bool,
+        boost_reference: str | None,
+        boost_strength: float,
         request: gr.Request,
         progress=progress,
     ) -> Iterator[tuple]:
@@ -62,6 +65,9 @@ def make_generate(controller: UiController) -> Callable[..., Iterator[tuple]]:
                     seed,
                     grain,
                     style_strength,
+                    boost_enabled,
+                    boost_reference,
+                    boost_strength,
                 )
                 rendered = controller.generate(
                     parameters, stage=lambda text: progress(None, desc=text)

@@ -25,7 +25,8 @@ def mode_presentation(
         )
         explanation = (
             "**Real neural transfer** · Frozen pretrained SqueezeNet features "
-            f"guide optimization using {source}. No post-grading."
+            f"guide optimization using {source}, with detail-guided reconstruction. "
+            "No post-grading."
         )
     elif mode == "hybrid":
         source = (

@@ -142,3 +142,38 @@ def test_neural_strength_pass_through_and_bounds() -> None:
     for strength in (-1, 2, float("nan"), True):
         with pytest.raises(ValueError):
             MoodSettings(neural_style_strength=strength)
+
+
+def test_reference_boost_after_neural_and_missing_reference(
+    controller: UiController, content: Path, tmp_path: Path
+) -> None:
+    """Apply the boost only after a real neural result and preserve PNG export."""
+    from dataclasses import replace
+
+    from moodshift.services.models import MoodResult
+
+    original = load_image(content)
+    known = MoodTransferService().transfer(
+        content, preset_id="cinematic", settings=MoodSettings(intensity=0)
+    )
+    neural_result = MoodResult(
+        original, replace(known.metadata, neural_applied=True, actual_engine="test")
+    )
+    backend = Mock()
+    backend.transfer.return_value = neural_result
+    controller._factory = Mock(return_value=backend)
+    reference = tmp_path / "warm.png"
+    Image.new("RGB", (40, 40), (230, 100, 30)).save(reference)
+    common = {"mode": "neural", "boost_enabled": True, "boost_strength": 100}
+    no_ref = controller.generate(
+        UiParameters(str(content), **common), stage=lambda _: None
+    )
+    assert no_ref.image.tobytes() == original.tobytes()
+    boosted = controller.generate(
+        UiParameters(str(content), boost_reference=str(reference), **common),
+        stage=lambda _: None,
+    )
+    assert boosted.metadata["reference_mood_boost"]["applied"]
+    assert boosted.image.tobytes() != original.tobytes()
+    assert load_image(boosted.download).tobytes() == boosted.image.tobytes()
+    assert backend.transfer.call_count == 2

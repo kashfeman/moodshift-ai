@@ -1,5 +1,8 @@
 """Content-guided experimental decoder and its differentiable training objective."""
 
+import math
+from dataclasses import dataclass
+
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
@@ -10,6 +13,34 @@ from moodshift.engine.training import (
     align_features,
     feature_statistics,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class GuidedLossWeights:
+    """Nonnegative finite weights for the four guided training losses."""
+
+    content: float = 1.0
+    style: float = 1.0
+    identity: float = 10.0
+    edge: float = 2.0
+
+    def __post_init__(self) -> None:
+        """Reject invalid values and an objective with no active terms."""
+        values = (self.content, self.style, self.identity, self.edge)
+        if any(
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value < 0
+            for value in values
+        ):
+            raise ValueError("loss weights must be finite nonnegative numbers")
+        if not any(values):
+            raise ValueError("at least one loss weight must be positive")
+
+
+BASELINE_WEIGHTS = GuidedLossWeights()
+STRONGER_STYLE_WEIGHTS = GuidedLossWeights(content=1, style=3, identity=5, edge=1)
 
 
 class GuidedDecoder(nn.Module):
@@ -63,7 +94,11 @@ def edge_loss(output: Tensor, content: Tensor) -> Tensor:
 
 
 def guided_objective(
-    encoder: EncoderAdapter, decoder: GuidedDecoder, content: Tensor, style: Tensor
+    encoder: EncoderAdapter,
+    decoder: GuidedDecoder,
+    content: Tensor,
+    style: Tensor,
+    weights: GuidedLossWeights = BASELINE_WEIGHTS,
 ) -> dict[str, Tensor]:
     """Match style features while preserving RGB identity and content gradients."""
     with torch.no_grad():
@@ -83,7 +118,12 @@ def guided_objective(
     identity = decoder(content_features, content)
     reconstruction_loss = F.mse_loss(identity, content)
     edges = edge_loss(output, content)
-    total = content_loss + style_loss + 10 * reconstruction_loss + 2 * edges
+    total = (
+        weights.content * content_loss
+        + weights.style * style_loss
+        + weights.identity * reconstruction_loss
+        + weights.edge * edges
+    )
     return {
         "loss": total,
         "content_loss": content_loss,
@@ -99,6 +139,7 @@ def guided_step(
     optimizer: torch.optim.Optimizer,
     content: Tensor,
     style: Tensor,
+    weights: GuidedLossWeights = BASELINE_WEIGHTS,
 ) -> dict[str, float]:
     """Update decoder parameters once with finite checks and gradient clipping."""
     decoder_ids = {id(p) for p in decoder.parameters() if p.requires_grad}
@@ -106,7 +147,7 @@ def guided_step(
     if len(optimizer_ids) != len(decoder_ids) or set(optimizer_ids) != decoder_ids:
         raise ValueError("optimizer must contain exactly the decoder parameters")
     optimizer.zero_grad(set_to_none=True)
-    losses = guided_objective(encoder, decoder, content, style)
+    losses = guided_objective(encoder, decoder, content, style, weights)
     if not all(torch.isfinite(v) for v in losses.values()):
         raise ValueError("nonfinite training loss")
     losses["loss"].backward()
